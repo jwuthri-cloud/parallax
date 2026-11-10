@@ -1,0 +1,9 @@
+node_modules
+.next
+data
+package-lock.json
+next-env.d.ts
+docs/screenshots
+# Vendored from Tracely; kept in its own formatting so it diffs cleanly against the source.
+components/traces/tracely
+app/tracely.css

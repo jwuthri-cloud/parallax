@@ -1,0 +1,148 @@
+/* The Traces tab shell. The tab keeps Tracely's layout and Tailwind classes (app/tracely.css,
+   scoped to .trc-scope); every colour, surface and font below comes from the active Parallax
+   theme, so Moss, Glacier, Iris and Paper all apply. */
+.main-content.view-traces {
+  padding: 0;
+  max-width: none;
+}
+.trc-stage {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 65px);
+}
+/* A portal carries the scope for the styles but must not paint the canvas. */
+.trc-scope.trc-portal {
+  background: none;
+}
+
+.trc-scope {
+  color-scheme: dark;
+  --font-sans: var(--font);
+  --font-display: var(--font);
+  --font-mono: var(--mono);
+
+  /* Surfaces, from the canvas down to the raised card steps. */
+  --trc-ink: var(--bg);
+  --trc-ink-950: var(--sidebar);
+  --trc-ink-900: color-mix(in srgb, var(--bg) 50%, var(--surface));
+  --trc-ink-800: var(--surface);
+  --trc-ink-700: var(--surface2);
+  --trc-ink-600: var(--surface3);
+  --trc-line: var(--border);
+  --trc-line-soft: color-mix(in srgb, var(--border) 55%, var(--bg));
+  --trc-line-bright: var(--border-light);
+  --trc-fg: var(--text);
+  --trc-fg-muted: var(--muted);
+  --trc-fg-faint: var(--dim);
+  --trc-hilite: var(--text);
+
+  /* The theme accent drives every active / interactive state. */
+  --trc-signal: var(--lime);
+  --trc-signal-soft: color-mix(in srgb, var(--lime) 70%, var(--text));
+  --trc-signal-dim: color-mix(in srgb, var(--lime) 45%, var(--bg));
+  --trc-signal-deep: color-mix(in srgb, var(--lime) 18%, var(--bg));
+
+  /* Status and span types: Parallax's chart palette, which each theme tunes. */
+  --trc-ok: var(--px-series-3);
+  --trc-fail: var(--px-series-8);
+  --trc-warn: var(--px-series-4);
+  --trc-info: var(--px-series-1);
+  --trc-ok-dim: color-mix(in srgb, var(--trc-ok) 20%, var(--bg));
+  --trc-fail-dim: color-mix(in srgb, var(--trc-fail) 20%, var(--bg));
+  --trc-warn-dim: color-mix(in srgb, var(--trc-warn) 20%, var(--bg));
+  --trc-info-dim: color-mix(in srgb, var(--trc-info) 20%, var(--bg));
+  --trc-t-agent: var(--px-series-1);
+  --trc-t-llm: var(--px-series-3);
+  --trc-t-tool: var(--px-series-2);
+  --trc-t-retriever: var(--px-series-7);
+  --trc-t-think: color-mix(in srgb, var(--px-series-7) 50%, var(--muted));
+  --trc-t-delegate: color-mix(
+    in srgb,
+    var(--px-series-1) 55%,
+    var(--px-series-3)
+  );
+  --trc-t-skill: var(--px-series-5);
+  --trc-t-step: var(--muted);
+
+  /* JSON highlighting, in the theme's soft hues. */
+  --trc-syn-key: var(--pink);
+  --trc-syn-str: var(--blue);
+  --trc-syn-num: var(--purple);
+  --trc-syn-bool: var(--orange);
+
+  /* Canvas, grid, selection, scrollbars and shadows. */
+  --canvas: var(--bg);
+  --canvas-aurora: radial-gradient(
+    1000px 560px at 8% -10%,
+    color-mix(in srgb, var(--lime) 6%, transparent),
+    transparent 60%
+  );
+  --grid-line: color-mix(in srgb, var(--text) 3%, transparent);
+  --blueprint-line: color-mix(in srgb, var(--text) 4%, transparent);
+  --hairline-x: color-mix(in srgb, var(--text) 16%, transparent);
+  --scrollbar: var(--surface3);
+  --scrollbar-hover: var(--border-light);
+  --select-bg: color-mix(in srgb, var(--lime) 25%, transparent);
+  --select-fg: var(--text);
+  --heading-gradient: linear-gradient(
+    180deg,
+    var(--text) 25%,
+    var(--lime) 100%
+  );
+  --cyan-gradient: linear-gradient(180deg, var(--lime) 0%, var(--lime) 100%);
+  --sh-glow:
+    0 0 0 1px color-mix(in srgb, var(--lime) 25%, transparent),
+    0 8px 30px -8px color-mix(in srgb, var(--lime) 30%, transparent);
+  --sh-panel:
+    0 1px 0 0 color-mix(in srgb, var(--text) 3%, transparent) inset,
+    0 20px 40px -24px #000c;
+  --sh-frame:
+    0 1px 1px 0 color-mix(in srgb, var(--text) 14%, transparent) inset,
+    0 32px 64px -24px #000000d9;
+  --sh-pop: 0 25px 50px -12px #000000bf;
+}
+:root[data-theme="paper"] .trc-scope {
+  color-scheme: light;
+  /* The chart hues are tuned for fills; darkened here so they also read as text on paper. */
+  --trc-ok: color-mix(in srgb, var(--px-series-3) 70%, var(--text));
+  --trc-warn: color-mix(in srgb, var(--px-series-4) 60%, var(--text));
+  --trc-ok-dim: color-mix(in srgb, var(--trc-ok) 14%, var(--surface));
+  --trc-fail-dim: color-mix(in srgb, var(--trc-fail) 14%, var(--surface));
+  --trc-warn-dim: color-mix(in srgb, var(--trc-warn) 14%, var(--surface));
+  --trc-info-dim: color-mix(in srgb, var(--trc-info) 14%, var(--surface));
+  --grid-line: color-mix(in srgb, var(--text) 5%, transparent);
+  --sh-panel:
+    0 1px 0 0 #fffc inset,
+    0 12px 28px -20px color-mix(in srgb, var(--text) 45%, transparent);
+  --sh-frame:
+    0 1px 1px 0 #ffffffe6 inset,
+    0 24px 48px -28px color-mix(in srgb, var(--text) 35%, transparent);
+  --sh-pop:
+    0 10px 15px -3px color-mix(in srgb, var(--text) 12%, transparent),
+    0 20px 40px -12px color-mix(in srgb, var(--text) 20%, transparent);
+}
+
+/* The experiment page's link to its traces. */
+.experiment-traces {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 12.5px;
+  text-decoration: none;
+}
+.experiment-traces:hover {
+  border-color: var(--border-light);
+}
+.experiment-traces b {
+  color: var(--px-series-8);
+  font-weight: 600;
+}
+.experiment-traces svg {
+  margin-left: auto;
+  color: var(--muted);
+}

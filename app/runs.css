@@ -1,0 +1,345 @@
+/* Runs tab: live training telemetry. */
+.run-view {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.run-view .mono {
+  font-family: var(--mono);
+}
+.run-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.run-head h1 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 4px 0 0;
+  font-size: 26px;
+  overflow-wrap: anywhere;
+}
+.run-actions {
+  display: flex;
+  gap: 4px;
+}
+.run-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-decoration: none;
+}
+.run-back:hover {
+  color: var(--text);
+}
+.run-muted {
+  color: var(--muted);
+  font-size: 13px;
+}
+.run-error,
+.run-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--orange);
+  border-radius: 8px;
+  color: var(--orange);
+  font-size: 12.5px;
+}
+.run-warning svg {
+  flex: none;
+}
+.run-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.run-toolbar .run-search {
+  margin-left: auto;
+}
+.run-control {
+  display: inline-flex;
+  flex-direction: row;
+  margin: 0;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.run-control input[type="range"] {
+  width: 110px;
+  accent-color: var(--lime);
+}
+
+/* Status: a dot that pulses while the run reports. */
+.run-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+.run-status i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.run-status.running {
+  color: var(--lime);
+}
+.run-status.running i {
+  animation: run-pulse 1.6s ease-in-out infinite;
+}
+.run-status.finished {
+  color: var(--blue);
+}
+.run-status.failed,
+.run-status.stalled {
+  color: var(--orange);
+}
+.run-status.killed {
+  color: var(--pink);
+}
+@keyframes run-pulse {
+  50% {
+    opacity: 0.25;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .run-status.running i {
+    animation: none;
+  }
+}
+
+/* Tables */
+.run-table-wrap {
+  overflow-x: auto;
+}
+.run-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.run-table th {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  color: var(--muted);
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+.run-table td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+.run-table .num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+}
+.run-table-wrap tbody tr {
+  cursor: pointer;
+}
+.run-table-wrap tbody tr:hover {
+  background: var(--surface2);
+}
+.run-table small {
+  color: var(--dim);
+}
+.run-table .tag {
+  margin-left: 6px;
+}
+
+/* Header facts */
+.run-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin-top: 12px;
+  font-size: 12.5px;
+}
+.run-facts span,
+.run-link {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+.run-facts small,
+.run-link small {
+  color: var(--dim);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.run-link {
+  color: var(--lime);
+  font-size: 12.5px;
+}
+.run-notes {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.run-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.run-chips a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 12.5px;
+  text-decoration: none;
+}
+
+/* Dashboard sections */
+.run-section h3,
+.run-kv h3 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 8px 0 10px;
+  font-size: 14px;
+}
+.run-section h3 small {
+  color: var(--dim);
+  font-family: var(--mono);
+  font-weight: 400;
+}
+.run-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
+  gap: 14px;
+}
+.run-tables {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 20px;
+}
+.run-kv pre {
+  margin: 0;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.run-quickstart pre {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font-family: var(--mono);
+  font-size: 12px;
+  overflow-x: auto;
+}
+
+/* On an experiment page */
+.experiment-runs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin-top: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 12.5px;
+}
+.experiment-runs a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  text-decoration: none;
+}
+.experiment-runs a small {
+  color: var(--dim);
+}
+@media (max-width: 720px) {
+  .run-head {
+    flex-direction: column;
+  }
+  .run-toolbar .run-search {
+    width: 100%;
+    margin-left: 0;
+  }
+}
+.run-segment {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.run-segment button {
+  padding: 5px 10px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 12.5px;
+  text-transform: capitalize;
+}
+.run-segment button:hover {
+  color: var(--text);
+}
+.run-segment button.active {
+  background: var(--surface3);
+  color: var(--text);
+}
+.run-search {
+  width: 260px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12.5px;
+}
+.run-search:focus {
+  border-color: var(--border-light);
+  outline: none;
+}
+.run-kv td:first-child {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+.run-table-wrap td {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+.run-quickstart-actions {
+  display: flex;
+  justify-content: center;
+  margin: -8px 0 16px;
+}
+.run-actions {
+  align-items: center;
+}

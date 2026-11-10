@@ -1,0 +1,100 @@
+// Column definitions + static visual tokens for the trace table. No React, no I/O — these are the
+// stable shape of the table (the dynamic metric columns get appended at runtime from `evaluators`).
+// Extracted from TraceTable.tsx so the static layout is one short, readable file.
+import type { SessionSort } from "../lib/api";
+
+// ── shape ─────────────────────────────────────────────────────────────────────
+export type Group = "C" | "M" | "S";
+
+export type Col = {
+  key: string;
+  label: string;
+  group: Group;
+  width: number;
+};
+
+// ── badges ──────────────────────────────────────────────────────────────────────
+export const LEVEL_BADGE: Record<Group, string> = {
+  C: "bg-info/20 text-info",
+  M: "bg-ok/20 text-ok",
+  S: "bg-t_think/20 text-t_think",
+};
+
+export const ROW_BG: Record<number, string> = {
+  0: "bg-ink-700/50 border-l-info",
+  1: "bg-ink-700/30 border-l-ok",
+  2: "bg-ink-700/10 border-l-t_think",
+};
+
+// ── static layout tokens ──────────────────────────────────────────────────────
+export const CTRL = { width: 40, minWidth: 20 };
+export const HEAD_TH =
+  "text-left text-xs font-medium text-fg-muted uppercase tracking-wider px-2 sm:px-3 py-3 first:pl-2 sm:first:pl-4 whitespace-nowrap";
+
+// Persisted view preferences (hidden columns). The full-width toggle lives in ../../lib/useWide so
+// the Timeline + Evaluations tabs share one Enlarge/Concise control with the table.
+export const PREFS_KEY = "tracely.traceTable.prefs";
+
+// Canonical span types — mirrors backend/tracely/otel/mapping.py:_KNOWN_TYPES (+ SUBAGENT from the
+// TypeChip map). The Types filter menu always lists these so the preference is truly global —
+// otherwise the menu changes per trace and users can't pre-hide CHAIN/THINKING on traces that
+// haven't been opened yet. Ordered most-useful-to-filter first; unknown types found in data are
+// appended.
+export const KNOWN_SPAN_TYPES = [
+  "AGENT",
+  "SUBAGENT",
+  "DELEGATE",
+  "GENERATION",
+  "TOOL",
+  "SKILL",
+  "THINKING",
+  "CHAIN",
+  "RETRIEVER",
+  "EMBEDDING",
+  "GUARDRAIL",
+  "EVALUATOR",
+  "EVENT",
+  "SPAN",
+] as const;
+
+// ── default column set ────────────────────────────────────────────────────────
+// The static C/M/S columns (Parallax: Tracely's evaluator and rolling-summary columns are not
+// ported; "Experiment" is Parallax's own). Order matters — it's the left-to-right order.
+export const COLUMNS: Col[] = [
+  { key: "conversation", label: "Conversation", group: "C", width: 260 },
+  { key: "cagent",       label: "Agent",        group: "C", width: 140 },
+  { key: "ctime",        label: "Datetime",     group: "C", width: 160 },
+  { key: "cdur",         label: "Duration",     group: "C", width: 96 },
+  { key: "cexp", label: "Experiment", group: "C", width: 200 },
+  { key: "cmeta", label: "Metadata", group: "C", width: 200 },
+  { key: "cusage", label: "Usage", group: "C", width: 180 },
+  { key: "role", label: "Role", group: "M", width: 110 },
+  { key: "mindex", label: "#", group: "M", width: 56 },
+  { key: "mtime", label: "Datetime", group: "M", width: 160 },
+  { key: "mdur",  label: "Duration", group: "M", width: 96 },
+  { key: "content", label: "Content", group: "M", width: 420 },
+  { key: "mstate", label: "State Δ", group: "M", width: 240 },
+  { key: "musage", label: "Usage", group: "M", width: 180 },
+  { key: "sindex", label: "#", group: "S", width: 56 },
+  { key: "type", label: "Type", group: "S", width: 120 },
+  { key: "stime", label: "Datetime", group: "S", width: 160 },
+  { key: "sdur", label: "Duration", group: "S", width: 96 },
+  { key: "agent", label: "Agent", group: "S", width: 120 },
+  { key: "model", label: "Model", group: "S", width: 120 },
+  { key: "name", label: "Name", group: "S", width: 170 },
+  { key: "input", label: "Input", group: "S", width: 240 },
+  { key: "output", label: "Output", group: "S", width: 240 },
+  { key: "sstate", label: "State Δ", group: "S", width: 240 },
+  { key: "susage", label: "Usage", group: "S", width: 180 },
+];
+
+// Which headers are clickable, and the server-side sort each one asks for (mirrors
+// `traceQuerySchema.sort` in lib/schema.ts). C-group only, for two reasons: the list is a page of
+// *conversations*, so only a C column has something global to order by — and the S rows are a
+// parent/child span tree that any reordering would flatten into nonsense. `ctime` renders
+// `first_ts`, so it sorts on when the conversation STARTED, not on last activity.
+export const SORTABLE: Record<string, SessionSort> = {
+  ctime: "started",
+  cdur: "duration",
+  cusage: "tokens",
+};

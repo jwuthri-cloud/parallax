@@ -1,0 +1,302 @@
+/* Legacy colors retain their exact Moss values; other atmospheres use semantic tokens. */
+:root {
+  --accent-ink: #17200f;
+  /* Chart tokens for lib/kit; series slots are validated for CVD and contrast. */
+  --px-surface: var(--paint-bg, #17220f);
+  --px-raised: var(--surface2);
+  --px-border: var(--paint-border, #3a5328);
+  --px-grid: var(--border);
+  --px-text: var(--text);
+  --px-muted: var(--muted);
+  --px-series-1: #3987e5;
+  --px-series-2: #d95926;
+  --px-series-3: #199e70;
+  --px-series-4: #c98500;
+  --px-series-5: #d55181;
+  --px-series-6: #008300;
+  --px-series-7: #9085e9;
+  --px-series-8: #e66767;
+}
+:root[data-theme="glacier"] {
+  --bg: #0d1720;
+  --sidebar: #0a121b;
+  --surface: #131f2b;
+  --surface2: #1a2a38;
+  --surface3: #213546;
+  --border: #253744;
+  --border-light: #355163;
+  --text: #e5f1f5;
+  --muted: #96aebc;
+  --dim: #72909f;
+  --lime: #9de5ed;
+  --purple: #b8b5ed;
+  --blue: #91c9f3;
+  --orange: #eab996;
+  --pink: #e3b2cf;
+  --accent-ink: #10262c;
+}
+:root[data-theme="iris"] {
+  --bg: #191521;
+  --sidebar: #121019;
+  --surface: #221c2d;
+  --surface2: #2c233b;
+  --surface3: #382d48;
+  --border: #3a2f48;
+  --border-light: #51415f;
+  --text: #f1e9fa;
+  --muted: #b1a0c1;
+  --dim: #9582a6;
+  --lime: #d6b5ff;
+  --purple: #c0adf1;
+  --blue: #a3c6ef;
+  --orange: #e9b69b;
+  --pink: #eca8ce;
+  --accent-ink: #2b193e;
+}
+:root[data-theme="paper"] {
+  color-scheme: light;
+  --bg: #f4f1e9;
+  --sidebar: #ebe7dd;
+  --surface: #fcfaf5;
+  --surface2: #eeeadf;
+  --surface3: #e4dfd2;
+  --border: #ded9cc;
+  --border-light: #c7c0ae;
+  --text: #2d352b;
+  --muted: #65705e;
+  --dim: #737d6c;
+  --lime: #49654a;
+  --purple: #786293;
+  --blue: #446e89;
+  --orange: #95613d;
+  --pink: #96627e;
+  --accent-ink: #f7f7ec;
+  --px-series-1: #2a78d6;
+  --px-series-2: #eb6834;
+  --px-series-3: #1baf7a;
+  --px-series-4: #eda100;
+  --px-series-5: #e87ba4;
+  --px-series-6: #008300;
+  --px-series-7: #6250d6;
+  --px-series-8: #e34948;
+}
+:root:is([data-theme="glacier"], [data-theme="iris"], [data-theme="paper"]) {
+  --paint-accent: var(--lime);
+  --paint-accent-15: color-mix(in srgb, var(--lime) 15%, transparent);
+  --paint-accent-2: color-mix(in srgb, var(--lime) 2%, transparent);
+  --paint-accent-25: color-mix(in srgb, var(--lime) 25%, transparent);
+  --paint-accent-27: color-mix(in srgb, var(--lime) 27%, transparent);
+  --paint-accent-3: color-mix(in srgb, var(--lime) 3%, transparent);
+  --paint-accent-4: color-mix(in srgb, var(--lime) 4%, transparent);
+  --paint-accent-47: color-mix(in srgb, var(--lime) 47%, transparent);
+  --paint-accent-7: color-mix(in srgb, var(--lime) 7%, transparent);
+  --paint-accent-9: color-mix(in srgb, var(--lime) 9%, transparent);
+  --paint-bg: var(--bg);
+  --paint-border: var(--border-light);
+  --paint-deep: var(--sidebar);
+  --paint-deep-75: color-mix(in srgb, var(--sidebar) 75%, transparent);
+  --paint-dim: var(--dim);
+  --paint-muted: var(--muted);
+  --paint-on-accent: var(--accent-ink);
+  --paint-raised: var(--surface2);
+  --paint-raised-25: color-mix(in srgb, var(--surface2) 25%, transparent);
+  --paint-raised-50: color-mix(in srgb, var(--surface2) 50%, transparent);
+  --paint-soft: color-mix(in srgb, var(--text) 83%, var(--muted));
+  --paint-surface: var(--surface);
+  --paint-surface-33: color-mix(in srgb, var(--surface) 33%, transparent);
+  --paint-text: var(--text);
+  --paint-tint: color-mix(in srgb, var(--lime) 14%, var(--surface));
+  --paint-tint-13: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--lime) 14%, var(--surface)) 13%,
+    transparent
+  );
+}
+::selection {
+  background: color-mix(in srgb, var(--lime) 25%, transparent);
+  color: var(--text);
+}
+.theme-quick {
+  padding: 18px 22px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+.theme-quick > .eyebrow {
+  font-size: 7px;
+  color: var(--muted);
+}
+.theme-swatches {
+  width: 100%;
+  justify-content: space-between;
+  display: flex;
+  gap: 7px;
+}
+.theme-swatches .theme-preview {
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  border: 1px solid;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+.theme-swatches .theme-preview > span {
+  display: none;
+}
+.theme-swatches .theme-preview i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.theme-swatches .selected .theme-preview i {
+  display: none;
+}
+.theme-swatches .theme-preview svg {
+  position: absolute;
+}
+.theme-swatches .selected {
+  outline: 1px solid var(--muted);
+  outline-offset: 3px;
+  border-radius: 50%;
+}
+.theme-option {
+  padding: 0;
+  text-align: left;
+  border-radius: 9px;
+}
+.appearance-card {
+  margin-bottom: 24px;
+}
+.appearance-settings > p {
+  color: var(--muted);
+  max-width: 600px;
+  line-height: 1.8;
+}
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+.theme-options .theme-option {
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.theme-options .theme-option:hover {
+  border-color: var(--muted);
+}
+.theme-options .theme-option.selected {
+  border-color: var(--lime);
+  box-shadow: 0 0 0 1px var(--lime);
+}
+.theme-options .theme-preview {
+  height: 85px;
+  display: block;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid;
+}
+.theme-options .theme-preview > span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 23%;
+}
+.theme-options .theme-preview::before,
+.theme-options .theme-preview::after {
+  content: "";
+  position: absolute;
+  left: 32%;
+  right: 13%;
+  top: 24px;
+  height: 5px;
+  border-radius: 8px;
+  background: currentColor;
+  opacity: 0.7;
+}
+.theme-options .theme-preview::after {
+  top: 38px;
+  right: 28%;
+  opacity: 0.2;
+}
+.theme-options .theme-preview i {
+  position: absolute;
+  bottom: 15px;
+  left: 32%;
+  height: 10px;
+  width: 20%;
+  border-radius: 3px;
+}
+.theme-options .theme-preview svg {
+  position: absolute;
+  right: 10px;
+  bottom: 12px;
+}
+.theme-copy {
+  display: block;
+  padding: 16px;
+}
+.theme-copy strong {
+  display: block;
+  font-size: 13px;
+  margin-bottom: 7px;
+  color: var(--text);
+}
+.theme-copy small {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+[data-theme="paper"] .modal-backdrop {
+  background: #302e255c;
+}
+[data-theme="paper"] .modal {
+  box-shadow: 0 24px 100px #423b2926;
+}
+@media (max-width: 700px) {
+  .theme-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Keep the sidebar's cards intact when viewport height is constrained. */
+.sidebar {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.sidebar > :not(.sidebar-spacer) {
+  flex-shrink: 0;
+}
+.sidebar-spacer {
+  min-height: 20px;
+}
+.theme-quick {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+.sidebar-note button {
+  max-width: 100%;
+  justify-content: space-between;
+  gap: 10px;
+}
+@media (max-height: 850px) {
+  .sidebar {
+    padding-top: 22px;
+  }
+  .sidebar .workspace-switch {
+    margin-top: 22px;
+  }
+  .sidebar-note {
+    padding: 15px 13px;
+  }
+  .sidebar-note p {
+    margin: 10px 0 12px;
+  }
+  .sidebar .settings-nav {
+    margin-top: 12px;
+    margin-bottom: 6px;
+  }
+}
