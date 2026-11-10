@@ -90,3 +90,8 @@ Current constraints: single-user local app; manual costs rather than provider bi
 
 - The Runs tables showed a null config, summary or meta value as "NaN/Inf", because the shared formatter treats null as a non-finite metric value. A job that could not read its git commit showed `commit NaN/Inf`. The Config, Summary and System tables and the compare view's config differences now show null as "—"; metric cells still show NaN/Inf.
 - Verification: `tsc --noEmit` (0 errors) and `npm run build` on a copy of the devbox deployment with the change. That build, run read-only against a real store, showed `commit —` for a run whose job could not read its commit, and no NaN/Inf cell in the tables of a run that recorded one. No automated test covers this view.
+
+## 2026-11-09 — Product tour video
+
+- `docs/parallax-tour.mp4` (1:56, 1440×900, captions, no audio), linked from the top of the README. Recorded with headless Chromium against a production build on 127.0.0.1:3100 with a temporary store, entries titled "Demo ·" and marked synthetic, and the built-in demo runs and demo traces. The real store on port 3000 was not used. The recording script is not in the repository.
+- Verification: frames from every scene of the final file were inspected. No app code changed, so no tests, type check or build were run.

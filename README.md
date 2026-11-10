@@ -1,5 +1,7 @@
 # Parallax
 
+**[▶ Watch the 2-minute tour](docs/parallax-tour.mp4)**
+
 **Research, in perspective.** A private Next.js research workspace for the Anthropic Fellows project. The interface and Claude Code MCP server share local SQLite storage, with a separate database for each workspace.
 
 ## Run it
