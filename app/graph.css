@@ -1,0 +1,487 @@
+/* Knowledge graph view (components/knowledge-graph.tsx). */
+.kg {
+  --kg-bg: var(--paint-deep, #141b0f);
+  --kg-panel: var(--paint-bg, #1c2515);
+  --kg-border: var(--paint-border, #37482a);
+  --kg-raised: var(--paint-raised, #2b3c1d);
+  --kg-soft: var(--paint-soft, #bccca8);
+  --kg-muted: var(--paint-muted, #869e71);
+  --kg-dim: var(--paint-dim, #5f7c48);
+  --kg-card: var(--paint-surface, #232e1a);
+}
+.kg-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+.kg-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 300px;
+  max-width: 100%;
+  background: var(--kg-panel);
+  border: 1px solid var(--kg-border);
+  border-radius: 5px;
+  padding: 0 11px;
+  color: var(--kg-muted);
+}
+.kg-search:focus-within {
+  border-color: var(--lime);
+}
+.kg-search input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: 0;
+  outline: none;
+  font-size: 12px;
+  padding: 9px 0;
+}
+.kg-search-count {
+  font-size: 10px;
+  white-space: nowrap;
+}
+.kg-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--kg-muted);
+  white-space: nowrap;
+}
+.kg-toolbar .button {
+  font-size: 11px;
+}
+
+/* Record types: the legend and the filter in one row. */
+.kg-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.kg-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border: 1px solid var(--kg-border);
+  border-radius: 999px;
+  background: var(--kg-panel);
+  color: var(--kg-soft);
+  font-size: 11px;
+}
+.kg-kind b {
+  font-weight: 500;
+  color: var(--kg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.kg-kind:hover {
+  border-color: var(--kg-muted);
+}
+.kg-kind[aria-pressed="false"] {
+  background: none;
+  border-style: dashed;
+  color: var(--kg-dim);
+  text-decoration: line-through;
+}
+.kg-kind[aria-pressed="false"] .kg-swatch {
+  opacity: 0.3;
+}
+.kg-swatch {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--kg);
+}
+.kg-swatch.task {
+  background: none;
+  box-shadow: inset 0 0 0 1.5px var(--kg);
+}
+.kg-edge-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--kg-muted);
+}
+.kg-edge-key i {
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+}
+.kg-edge-key i.supports {
+  background: var(--lime);
+}
+.kg-edge-key i.contradicts {
+  background: var(--orange);
+  margin-left: 8px;
+}
+
+.kg-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  /* The page header, toolbar and type row above take about 345px: the whole graph stays in the
+     window without a page scroll. */
+  height: clamp(480px, calc(100vh - 345px), 880px);
+  border: 1px solid var(--kg-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.kg-canvas {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--kg-bg);
+  touch-action: none;
+}
+.kg-canvas > svg {
+  display: block;
+  cursor: grab;
+  user-select: none;
+}
+.kg-canvas > svg:active {
+  cursor: grabbing;
+}
+.kg-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.kg-edge {
+  transition: opacity 0.15s;
+}
+.kg-edge path {
+  fill: none;
+  stroke: var(--kg-dim);
+  stroke-width: 1;
+  opacity: 0.6;
+}
+.kg-edge.supports path {
+  stroke: var(--lime);
+  opacity: 0.55;
+}
+.kg-edge.contradicts path {
+  stroke: var(--orange);
+  opacity: 0.8;
+}
+.kg-edge.lit path {
+  stroke: var(--kg-soft);
+  stroke-width: 1.5;
+  opacity: 0.9;
+}
+.kg-edge.lit.supports path {
+  stroke: var(--lime);
+}
+.kg-edge.lit.contradicts path {
+  stroke: var(--orange);
+}
+.kg-edge polygon {
+  fill: var(--kg-soft);
+}
+.kg-edge.supports polygon {
+  fill: var(--lime);
+}
+.kg-edge.contradicts polygon {
+  fill: var(--orange);
+}
+.kg-edge.dim {
+  opacity: 0.12;
+}
+.kg-label {
+  font-size: 11px;
+  font-weight: 500;
+  fill: var(--kg-soft);
+  /* A halo in the canvas colour keeps the text readable on top of lines. */
+  paint-order: stroke;
+  stroke: var(--kg-bg);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+/* Records: one button per record, drawn as a card or, when there is no room, as a dot. The
+   layer has no size and takes no pointer events, so a drag on the empty canvas reaches the SVG. */
+.kg-nodes {
+  position: absolute;
+  left: 0;
+  top: 0;
+  pointer-events: none;
+}
+.kg-node {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  padding: 0;
+  overflow: hidden;
+  pointer-events: auto;
+  cursor: pointer;
+  transform: translate(-50%, -50%) scale(var(--kg-scale));
+  transition:
+    opacity 0.15s,
+    width 0.12s,
+    height 0.12s,
+    border-radius 0.12s;
+}
+.kg-node.card {
+  padding: 0 10px;
+  border: 1px solid var(--kg-border);
+  /* The record type, as in the legend row. */
+  box-shadow: inset 3px 0 0 var(--kg);
+  border-radius: 8px;
+  background: var(--kg-card);
+  color: var(--kg-soft);
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 15px;
+  text-align: left;
+}
+.kg-node.card > svg {
+  flex: none;
+  color: var(--kg);
+}
+.kg-node.card > span {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--kg-lines);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.kg-node.card.one > span {
+  display: block;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.kg-node.dot {
+  border: 1.5px solid var(--kg-bg);
+  border-radius: 50%;
+  background: var(--kg);
+}
+.kg-node.dot.task {
+  border-color: var(--kg);
+  background: var(--kg-bg);
+}
+.kg-node.dot > * {
+  display: none;
+}
+.kg-node.card:hover,
+.kg-node.card:focus-visible,
+.kg-node.card.picked {
+  border-color: var(--kg);
+  color: var(--text);
+}
+.kg-node.dot:hover,
+.kg-node.dot:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 1px;
+}
+.kg-node.picked {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--kg) 28%, transparent);
+}
+.kg-node.card.picked {
+  box-shadow:
+    inset 3px 0 0 var(--kg),
+    0 0 0 3px color-mix(in srgb, var(--kg) 28%, transparent);
+}
+/* A lit card can cover a faded one: it stays on top. */
+.kg-node.lit {
+  z-index: 1;
+}
+.kg-node.dim {
+  opacity: 0.22;
+}
+
+.kg-controls {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  background: var(--paint-surface, #232e1a);
+  border: 1px solid var(--kg-border);
+  border-radius: 5px;
+  padding: 3px;
+}
+.kg-controls button {
+  display: flex;
+  padding: 6px;
+  color: var(--kg-soft);
+  border-radius: 3px;
+}
+.kg-controls button:hover {
+  color: var(--lime);
+  background: var(--paint-tint, #354d23);
+}
+.kg-controls span {
+  min-width: 40px;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--kg-muted);
+}
+.kg-hint {
+  position: absolute;
+  right: 14px;
+  bottom: 18px;
+  font-size: 10px;
+  color: var(--kg-dim);
+  pointer-events: none;
+}
+
+.kg-inspector {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 16px;
+  border-left: 1px solid var(--kg-border);
+  background: var(--kg-panel);
+}
+.kg-inspector-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.kg-inspector h2 {
+  margin: 12px 0 8px;
+  font-size: 16px;
+  font-weight: 550;
+  line-height: 1.35;
+  letter-spacing: -0.2px;
+  overflow-wrap: anywhere;
+}
+.kg-inspector p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--kg-muted);
+  overflow-wrap: anywhere;
+}
+.kg-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+}
+.kg-actions .button,
+.kg-actions .text-button {
+  font-size: 11px;
+}
+.kg-inspector h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--kg-muted);
+}
+.kg-actions + h3 {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--kg-border);
+}
+.kg-inspector h3 b {
+  font-weight: 500;
+  color: var(--kg-dim);
+}
+.kg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  margin: 0 -8px;
+}
+.kg-list button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: baseline;
+  column-gap: 8px;
+  padding: 7px 8px;
+  border-radius: 5px;
+  text-align: left;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--kg-soft);
+}
+.kg-list button:hover,
+.kg-list button:focus-visible {
+  background: var(--kg-raised);
+  color: var(--text);
+}
+.kg-list button > small {
+  grid-column: 1 / -1;
+  margin-bottom: 2px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--kg-muted);
+}
+.kg-list button > small.supports {
+  color: var(--lime);
+}
+.kg-list button > small.contradicts {
+  color: var(--orange);
+}
+.kg-list button > b {
+  font-weight: 500;
+  font-size: 11px;
+  color: var(--kg-muted);
+  font-variant-numeric: tabular-nums;
+}
+.kg-list > p {
+  padding: 0 8px;
+}
+.kg-inspector .kg-note {
+  margin-top: auto;
+  padding-top: 16px;
+  font-size: 11px;
+}
+
+@media (max-width: 1050px) {
+  .kg-layout {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+  }
+  .kg-canvas {
+    height: clamp(380px, 60vh, 640px);
+  }
+  .kg-inspector {
+    border-left: 0;
+    border-top: 1px solid var(--kg-border);
+    max-height: 420px;
+  }
+}
+@media (max-width: 760px) {
+  .kg-toolbar {
+    flex-wrap: wrap;
+    gap: 9px;
+  }
+  .kg-search {
+    width: 100%;
+  }
+  .kg-count {
+    margin-left: 0;
+  }
+  .kg-toolbar > .button {
+    margin-left: auto;
+  }
+  .kg-edge-key,
+  .kg-hint {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kg-edge,
+  .kg-node {
+    transition: none;
+  }
+}

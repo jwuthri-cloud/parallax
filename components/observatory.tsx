@@ -45,12 +45,12 @@ import { Signal } from "./signal";
 import { RecordEditor, RecordDetail } from "./records";
 import {
   Board,
-  KnowledgeGraph,
   ArtifactsView,
   SettingsView,
   Handoff,
   ManuscriptView,
 } from "./views";
+import { KnowledgeGraph } from "./knowledge-graph";
 import { TracesView } from "./traces/traces-view";
 import { RunsView } from "./runs/runs-view";
 
