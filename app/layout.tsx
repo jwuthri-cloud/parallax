@@ -12,6 +12,7 @@ import "@/lib/kit/chart.css";
 import "./tracely.css";
 import "./traces.css";
 import "./runs.css";
+import "./graph.css";
 export const metadata: Metadata = {
   icons: { icon: "/icon.svg" },
   title: "Parallax — Research, in perspective.",
