@@ -5,7 +5,8 @@ import type { ConvNode, FullTurn, SpanOut } from "./lib/api";
 import { useWide, WideToggle, WIDE_STYLE } from "./lib/useWide";
 import { StateIcon, StatePanel } from "./StatePanel";
 import { spanHasState } from "./state-fold";
-import { ConversationTabs, type ConvView } from "./ConversationChrome";
+import { ConversationTabs, EvalsPill } from "./ConversationChrome";
+import { conversationVerdict } from "./lib/conversation";
 import { TraceTable } from "./TraceTable";
 import { Waterfall } from "./Waterfall";
 
@@ -13,10 +14,19 @@ import { Waterfall } from "./Waterfall";
 //   • Table    — the hierarchical conversation → message → step tree (pre-expanded)
 //   • Timeline — a waterfall across every span of every turn, with idle think-time between
 //                turns collapsed (so an hour-later reply doesn't render an hour of empty track)
-// Parallax: Tracely's evaluation pill and Agents drawer are not ported; a step clicked in the
-// Table opens in the Timeline.
-export function SessionView({ conv, turns }: { conv: ConvNode; turns: FullTurn[] }) {
-  const [tab, setTab] = useState<ConvView>("table");
+// Replay and Fleet are the other two lenses; they are routes of their own (see pages.tsx).
+// Parallax: Tracely's Agents drawer is not ported; a step clicked in the Table opens in the
+// Timeline.
+export function SessionView({
+  conv,
+  turns,
+  initialTab = "table",
+}: {
+  conv: ConvNode;
+  turns: FullTurn[];
+  initialTab?: "table" | "timeline";
+}) {
+  const [tab, setTab] = useState<"table" | "timeline">(initialTab);
   const [focus, setFocus] = useState<string | null>(null);
 
   // Every span across all turns; the Waterfall compresses the idle gaps between turns.
@@ -36,11 +46,13 @@ export function SessionView({ conv, turns }: { conv: ConvNode; turns: FullTurn[]
   return (
     <div className="space-y-4">
       <ConversationTabs
+        threadId={conv.thread}
         active={tab}
         spans={allSpans.length}
         onSelect={setTab}
         right={
           <>
+            <EvalsPill verdict={conversationVerdict(conv, turns)} />
             {hasState && (
               <button
                 onClick={() => setShowState(true)}

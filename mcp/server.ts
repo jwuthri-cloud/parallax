@@ -618,6 +618,138 @@ server.registerTool(
       };
     }, workspaceId),
 );
+// ── judge columns (evaluators) and their scores ─────────────────────────────────
+const judge = await import("../lib/judge/store.js");
+const judgeProvider = await import("../lib/judge/provider.js");
+async function resultAsync(fn: () => Promise<unknown>, id?: string) {
+  try {
+    const value = await spaces.runInWorkspace(id, fn);
+    return {
+      content: [
+        { type: "text" as const, text: JSON.stringify(value, null, 2) },
+      ],
+    };
+  } catch (error) {
+    return {
+      isError: true,
+      content: [
+        {
+          type: "text" as const,
+          text:
+            error instanceof z.ZodError
+              ? error.issues
+                  .map((i) => `${i.path.join(".")}: ${i.message}`)
+                  .join("; ")
+              : error instanceof Error
+                ? error.message
+                : "Operation failed",
+        },
+      ],
+    };
+  }
+}
+const evaluatorGuide = `An evaluator is a judge column on the Traces table. level is CONVERSATION (one grade per session), AGENT_RUN (one per trace: the user request and the answer), or SPAN / TOOL / GENERATION / CHAIN (one per step). Creating a column runs nothing and costs nothing: the user runs it from the table (a run is paid model calls on the user's OpenRouter key). This server cannot run a judge.
+
+config has two engines. Prefer a DECISION column unless the metric needs written text.
+
+1. DECISION (model "typesafe/jev-1.13", the default; a classifier that answers ONE literal question; 32k-token input):
+   - output_type "decision_binary": question, criteria {"true": what yes means, "false": what no means}, pass_when "yes"|"no" (ask "Did the agent hallucinate?" with pass_when "no"; never invert the criteria), threshold = P(yes) cutoff (default 0.5).
+   - output_type "decision_multiclass": exactly one label. criteria {label: description|null} (2-255 snake_case labels), fail_options [labels that mean FAIL] (empty = a label column with no verdict).
+   - output_type "decision_multilabel": any subset of 2-50 labels, same criteria / fail_options, threshold per label.
+   Optional fallback_model (an LLM id) grades items too long for the decision model; without it they show "Skipped — input too long".
+2. LLM: model = any OpenRouter chat model id (default openai/gpt-6-luna). prompt is the rubric; output_type "score" (0-1 + threshold), "boolean", "number", "text", or "json" (+ output_schema: a flat JSON Schema; a numeric "score" field drives PASS/FAIL with threshold).
+
+Context: with no @VARIABLE in prompt, the level's item is sent (transcript / request + answer / one step). With @VARIABLEs the prompt is a template and nothing else is sent: @CURRENT_MESSAGE.input, @CURRENT_MESSAGE.output, @CURRENT_STEPS, @CURRENT_STEPS.tool, @CURRENT_STEPS.retriever, @HISTORY (up to this turn), @PREVIOUS_USER_MSG, @PREVIOUS_ASSISTANT_MSG, @GOAL, @AGENTS, @DEPENDENCIES; at step level also @CURRENT_STEP.input / .tool_call / .tool_result / .output_content / .error and @PREVIOUS_STEP. For a decision column the template holds only headings and variables (the question is in question).
+
+Chaining: depends_on [score_names] runs those columns first and adds their result for the same item to this column's context. run_if [conditions, all must hold] grades an item only when the depends_on results match; other items show "Not run". A condition is {"column": score_name, "field": "label"|"verdict"|"value", "op": "in"|"not_in" (with "values") or "gte"|"gt"|"lte"|"lt" (with "value")}. Columns in one chain need the same level group (conversation vs message/step) and execution_mode.
+
+Also: advisory true = a FAIL is shown but does not mark the turn as failing; execution_mode "sequential" = items are graded in order with the earlier ones as context; span_types limits a SPAN-level column to some step types; max_spans caps the steps graded per trace (default 30). Prefer a library template (list_evaluator_templates) when one fits. An error names what to fix.`;
+server.registerTool(
+  "list_evaluators",
+  {
+    description:
+      "List the judge columns (evaluators) of the Traces table: name, score_name (the key of its scores), level, enabled and config, and whether an OpenRouter key is configured. Judge runs are started by the user in the app, never by this server.",
+    inputSchema: { workspaceId },
+  },
+  ({ workspaceId }) =>
+    result(
+      () => ({
+        openrouterKeyConfigured: judgeProvider.keyStatus().configured,
+        evaluators: judge.listEvaluators(),
+      }),
+      workspaceId,
+    ),
+);
+server.registerTool(
+  "list_evaluator_templates",
+  {
+    description:
+      "List the template library of judge columns (decision-model questions for answer quality, hallucination, intent, tone, safety, tool choice and more), each with the config to pass to create_evaluator and an installed flag.",
+    inputSchema: { workspaceId },
+  },
+  ({ workspaceId }) => result(() => judge.listTemplates(), workspaceId),
+);
+server.registerTool(
+  "create_evaluator",
+  {
+    description: `Add a judge column. ${evaluatorGuide}`,
+    inputSchema: {
+      workspaceId,
+      ...judge.evaluatorCreateSchema.omit({ kind: true }).shape,
+    },
+  },
+  ({ workspaceId, ...input }) =>
+    resultAsync(() => judge.createEvaluator(input, "Claude Code"), workspaceId),
+);
+server.registerTool(
+  "update_evaluator",
+  {
+    description:
+      "Change a judge column: name, description, level, enabled, or the whole config (it replaces the stored one; read it with list_evaluators first). A level change removes the column's scores. Changes apply to the next run the user starts. See create_evaluator for the config.",
+    inputSchema: {
+      workspaceId,
+      id: z.string(),
+      ...judge.evaluatorUpdateSchema.shape,
+    },
+  },
+  ({ workspaceId, id, ...patch }) =>
+    resultAsync(
+      () => judge.updateEvaluator(id, patch, "Claude Code"),
+      workspaceId,
+    ),
+);
+server.registerTool(
+  "list_scores",
+  {
+    description:
+      "Read judge scores. With traceId: the message and step scores of that trace and its roll-up verdict. With sessionId: the conversation-level scores, and the scores and verdict of each of its traces. A score has name (the evaluator's score_name), evaluation_level, observation_id (the span, for a step score), value, string_value (label, text or JSON), verdict (PASS, FAIL or empty), comment (the reason), graded (false for Not run / Skipped) and error. These are model judgments, not measurements: report them as such.",
+    inputSchema: {
+      workspaceId,
+      traceId: z.string().optional(),
+      sessionId: z.string().optional(),
+    },
+  },
+  ({ workspaceId, traceId, sessionId }) =>
+    result(() => {
+      if (traceId) {
+        const { scores, verdict } = judge.withTraceScores({ traceId });
+        return { traceId, verdict, scores };
+      }
+      if (!sessionId) throw new Error("Pass traceId or sessionId");
+      const session = judge.withSessionDetailScores(
+        traces.getSession(sessionId),
+      );
+      return {
+        sessionId,
+        scores: session.scores,
+        traces: session.traces.map((t) => ({
+          traceId: t.traceId,
+          verdict: t.verdict,
+          scores: t.scores,
+        })),
+      };
+    }, workspaceId),
+);
 server.registerResource(
   "research-contract",
   "parallax://research-contract",

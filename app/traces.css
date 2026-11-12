@@ -122,6 +122,33 @@
     0 20px 40px -12px color-mix(in srgb, var(--text) 20%, transparent);
 }
 
+/* The Fleet office is a lit room, not a surface: it stays dark on Paper too (its pixel sprites
+   are painted for a dark floor). The labels, chips and bubbles inside read tokens, so Tracely's
+   dark palette is pinned on the stage there. */
+:root[data-theme="paper"] .trc-scope .fleet-stage {
+  color-scheme: dark;
+  --trc-ink: rgb(9 11 16);
+  --trc-ink-950: rgb(5 7 12);
+  --trc-ink-900: rgb(11 14 20);
+  --trc-ink-800: rgb(15 19 27);
+  --trc-ink-700: rgb(20 25 37);
+  --trc-ink-600: rgb(26 32 48);
+  --trc-line: rgb(27 34 48);
+  --trc-line-soft: rgb(20 26 38);
+  --trc-line-bright: rgb(40 50 74);
+  --trc-fg: rgb(232 235 242);
+  --trc-fg-muted: rgb(154 163 182);
+  --trc-fg-faint: rgb(92 102 121);
+  --trc-signal: rgb(34 211 238);
+  --trc-ok: rgb(52 211 153);
+  --trc-fail: rgb(251 113 133);
+  --trc-warn: rgb(251 191 36);
+  --trc-t-llm: rgb(52 211 153);
+  --trc-t-tool: rgb(251 146 60);
+  --trc-t-retriever: rgb(192 132 252);
+  --trc-t-think: rgb(196 181 253);
+}
+
 /* The experiment page's link to its traces. */
 .experiment-traces {
   display: flex;

@@ -16,6 +16,7 @@ test("real MCP stdio client: tools, records, metrics, tasks, graph, attachments 
     cwd: process.cwd(),
     env: {
       ...(process.env as Record<string, string>),
+      OPENROUTER_API_KEY: "", // the judge stays off: no call can leave this test
       PARALLAX_DATA_DIR: path.join(temp, "data"),
       PARALLAX_RESEARCH_ROOT: repo,
     },
@@ -35,7 +36,7 @@ test("real MCP stdio client: tools, records, metrics, tasks, graph, attachments 
   try {
     await client.connect(transport);
     const tools = await client.listTools();
-    assert.equal(tools.tools.length, 33);
+    assert.equal(tools.tools.length, 38);
     const experiment = await call("create_record", {
       kind: "experiment",
       title: "Fixture only: MCP baseline",
@@ -93,6 +94,40 @@ test("real MCP stdio client: tools, records, metrics, tasks, graph, attachments 
       [1, 1, []],
     );
     assert.equal((await call("list_trace_sessions")).total, 2);
+    // Judge columns: created and read here; a run is started by the user in the app only.
+    assert.ok(!tools.tools.some((t) => /run_eval/.test(t.name)));
+    assert.equal((await call("list_evaluator_templates")).length, 18);
+    const column = await call("create_evaluator", {
+      name: "Fixture judge",
+      level: "AGENT_RUN",
+      config: {
+        prompt: "Grade @CURRENT_MESSAGE.output",
+        model: "openai/gpt-6-luna",
+      },
+    });
+    assert.deepEqual(
+      [column.score_name, column.config.is_advanced, column.enabled],
+      ["custom.fixture_judge", true, true],
+    );
+    const paused = await call("update_evaluator", {
+      id: column.id,
+      enabled: false,
+    });
+    assert.equal(paused.enabled, false);
+    const columns = await call("list_evaluators");
+    assert.equal(columns.evaluators.length, 1);
+    assert.equal(columns.openrouterKeyConfigured, false);
+    const rejected = await client.callTool({
+      name: "create_evaluator",
+      arguments: { name: "x", config: { output_type: "decision_binary" } },
+    });
+    assert.equal(rejected.isError, true);
+    assert.match(JSON.stringify(rejected.content), /question is required/);
+    assert.deepEqual(await call("list_scores", { traceId: "fixture-trace" }), {
+      traceId: "fixture-trace",
+      verdict: null,
+      scores: [],
+    });
     const sent = await call("log_run_events", {
       events: [
         {

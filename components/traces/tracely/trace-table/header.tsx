@@ -1,10 +1,14 @@
 "use client";
 
 import clsx from "../clsx";
+import { useContext, useState } from "react";
 import type { SessionSort, SortOrder } from "../lib/api";
+import type { EvaluatorCost, EvaluatorDef } from "../lib/evaluators";
 import { TypeChip } from "../ui";
+import { fmtTokens } from "./format";
 import { type Col, CTRL, HEAD_TH, LEVEL_BADGE, SORTABLE } from "./columns";
-import { CTRL_CELLS } from "./contexts";
+import { DotsIcon, Play } from "./icons";
+import { CTRL_CELLS, EvalViewContext } from "./contexts";
 
 /** How the table asks its owner to re-sort. Lives here, with the header that renders it, so the
  *  header module does not have to import a type back out of the root component. */
@@ -15,23 +19,43 @@ export type SortHandle = {
   busy?: boolean;
 };
 
-// The header row and the menus that hang off it: column visibility and the step-type filter.
+// The header row and the menus that hang off it: column visibility, step-type filter, and the
+// per-evaluator column controls.
 
 // ── column-visibility menu ──────────────────────────────────────────────────────
-export function ColumnsMenu({ all, hidden, onToggle, onClose }: { all: Col[]; hidden: Set<string>; onToggle: (k: string) => void; onClose: () => void }) {
+// Parallax: the cost is what the provider reported for the judge calls; "—" when it reported none.
+function fmtCostCents(cents: number): string {
+  if (cents <= 0) return "—";
+  if (cents < 100) return `${cents}¢`;
+  return `$${(cents / 100).toFixed(cents < 10_000 ? 2 : 0)}`;
+}
+
+export function ColumnsMenu({ all, hidden, cost, onToggle, onClose }: { all: Col[]; hidden: Set<string>; cost: Record<string, EvaluatorCost>; onToggle: (k: string) => void; onClose: () => void }) {
   return (
     <>
       <div className="fixed inset-0 z-20" onClick={onClose} />
       <div className="absolute right-0 top-full z-30 mt-1 w-64 rounded-lg border border-line bg-ink-900 p-2 shadow-xl shadow-ink-950/50">
-        <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-fg-faint">Toggle columns</div>
+        <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-fg-faint">Toggle columns · judge cost (30d)</div>
         <div className="max-h-72 overflow-auto">
-          {all.map((col) => (
-            <label key={col.key} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-fg hover:bg-ink-700">
-              <input type="checkbox" checked={!hidden.has(col.key)} onChange={() => onToggle(col.key)} className="accent-signal" />
-              <span className="truncate">{col.label}</span>
-              <span className={clsx("ml-auto rounded px-1 text-[10px] font-medium", LEVEL_BADGE[col.group])}>{col.group}</span>
-            </label>
-          ))}
+          {all.map((col) => {
+            const c = col.evaluator ? cost[col.evaluator.score_name] : undefined;
+            return (
+              <label key={col.key} className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm text-fg hover:bg-ink-700">
+                <input type="checkbox" checked={!hidden.has(col.key)} onChange={() => onToggle(col.key)} className="accent-signal" />
+                <span className="truncate">{col.label}</span>
+                {col.evaluator && <span className="rounded bg-signal/15 px-1 text-[9px] font-medium uppercase text-signal">eval</span>}
+                {c && (
+                  <span
+                    className="rounded bg-ink-600/60 px-1 font-mono text-[9px] text-fg-muted"
+                    title={`${c.runs} run(s) · ${c.total_tokens.toLocaleString()} tokens · ${c.cost_usd_cents > 0 ? `${fmtCostCents(c.cost_usd_cents)} reported` : "no cost reported"} over 30d${c.model ? ` · ${c.model}` : ""}`}
+                  >
+                    {fmtCostCents(c.cost_usd_cents)} · {fmtTokens(c.total_tokens)}
+                  </span>
+                )}
+                <span className={clsx("ml-auto rounded px-1 text-[10px] font-medium", LEVEL_BADGE[col.group])}>{col.group}</span>
+              </label>
+            );
+          })}
         </div>
       </div>
     </>
@@ -70,6 +94,62 @@ export function TypesMenu({ types, hidden, onToggle, onReset, onClose }: {
 }
 
 // ── header ──────────────────────────────────────────────────────────────────────
+// Metric-column header controls: a Run button (whole column across the loaded rows) and a
+// ⋯ menu with Edit / Delete.
+function HeaderEvalControls({ evaluator }: { evaluator: EvaluatorDef }) {
+  const view = useContext(EvalViewContext);
+  const [menu, setMenu] = useState(false);
+  const busy = view.busyCols.has(evaluator.score_name);
+  return (
+    <span className="ml-0.5 inline-flex items-center">
+      {busy ? (
+        <span className="inline-flex h-5 w-5 items-center justify-center" title="Evaluating…">
+          <span className="h-3 w-3 animate-spin rounded-full border-2 border-line border-t-signal" />
+        </span>
+      ) : (
+        <button
+          onClick={() => view.runColumn(evaluator)}
+          className="inline-flex h-5 w-5 items-center justify-center rounded text-ok transition-colors hover:bg-ink-600 hover:text-ok"
+          title={`Run "${evaluator.name}" on all loaded rows`}
+        >
+          <Play className="h-3 w-3" />
+        </button>
+      )}
+      <span className="relative">
+        <button
+          onClick={() => setMenu((o) => !o)}
+          className="inline-flex h-5 w-5 items-center justify-center rounded text-fg-faint transition-colors hover:bg-ink-600 hover:text-fg"
+          title="Column options"
+        >
+          <DotsIcon className="h-3 w-3" />
+        </button>
+        {menu && (
+          <>
+            <span className="fixed inset-0 z-20" onClick={() => setMenu(false)} />
+            <span className="absolute right-0 top-full z-30 mt-1 block w-36 overflow-hidden rounded-lg border border-line bg-ink-900 py-1 shadow-xl shadow-ink-950/50">
+              {!evaluator.enabled && (
+                <span className="block px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-warn/80">disabled</span>
+              )}
+              <button
+                onClick={() => { setMenu(false); view.editColumn(evaluator); }}
+                className="block w-full px-3 py-1.5 text-left text-xs font-normal normal-case tracking-normal text-fg hover:bg-ink-700"
+              >
+                Edit column
+              </button>
+              <button
+                onClick={() => { setMenu(false); view.removeColumn(evaluator); }}
+                className="block w-full px-3 py-1.5 text-left text-xs font-normal normal-case tracking-normal text-fail hover:bg-ink-700"
+              >
+                Delete column
+              </button>
+            </span>
+          </>
+        )}
+      </span>
+    </span>
+  );
+}
+
 /** Sort affordance on a C-group header. Inactive columns show a muted glyph on hover only, so the
  *  header row stays quiet until you go looking for it. */
 function SortGlyph({ active, order }: { active: boolean; order: SortOrder }) {
@@ -97,7 +177,14 @@ export function HeaderRow({ cols, sort }: { cols: Col[]; sort?: SortHandle }) {
         // the query (the /traces list). Embedded and shared views get plain headers.
         const sortKey = sort ? SORTABLE[col.key] : undefined;
         const active = sortKey !== undefined && sort!.sort === sortKey;
-        const label = <span>{col.label}</span>;
+        const label = (
+          <span
+            className={clsx(col.evaluator && "max-w-[150px] truncate")}
+            title={col.evaluator ? `${col.label} — ${col.evaluator.description || "evaluation column"}` : undefined}
+          >
+            {col.label}
+          </span>
+        );
         return (
           <th
             key={col.key}
@@ -105,7 +192,8 @@ export function HeaderRow({ cols, sort }: { cols: Col[]; sort?: SortHandle }) {
             aria-sort={active ? (sort!.order === "asc" ? "ascending" : "descending") : undefined}
             className={clsx(
               HEAD_TH,
-              i > 0 && cols[i - 1].group !== col.group && "border-l border-line-bright/60",
+              (col.evaluator || (i > 0 && cols[i - 1].group !== col.group)) && "border-l border-line-bright/60",
+              col.tint?.th,
             )}
           >
             <div className="flex items-center gap-1">
@@ -127,6 +215,7 @@ export function HeaderRow({ cols, sort }: { cols: Col[]; sort?: SortHandle }) {
                 label
               )}
               <span className={clsx("rounded px-1.5 py-0.5 text-[10px] font-medium", LEVEL_BADGE[col.group])}>{col.group}</span>
+              {col.evaluator && <HeaderEvalControls evaluator={col.evaluator} />}
             </div>
           </th>
         );

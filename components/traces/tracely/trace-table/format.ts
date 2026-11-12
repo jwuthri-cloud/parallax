@@ -1,6 +1,6 @@
 // Pure formatting / parsing / message-extraction helpers for the trace table. No React, no I/O —
 // extracted from TraceTable.tsx so the tricky title/message/score logic is unit-testable in isolation.
-import type { SpanOut } from "../lib/api";
+import type { EvalScore, SpanOut } from "../lib/api";
 
 export type ChatMsg = { role?: string; content?: unknown; tool_calls?: unknown; finish_reason?: unknown };
 
@@ -333,6 +333,49 @@ export function toMsg(role: string, raw: string | null): { role: string; content
     if (text) return { role, content: text };
   }
   return { role, content: v };
+}
+
+// ── score formatting ─────────────────────────────────────────────────────────────
+export function scoreKey(s: EvalScore): string | null {
+  if (s.observation_id) return `span:${s.observation_id}|${s.name}`;
+  if (s.evaluation_level === "CONVERSATION") return s.session_id ? `th:${s.session_id}|${s.name}` : null;
+  return s.trace_id ? `tr:${s.trace_id}|${s.name}` : null;
+}
+
+// Classification-style json results should headline their LABEL (intent, risk_level,
+// trajectory_signal…), not the internal normalized score: the first short string field that
+// isn't prose. Returns null when the object has no label-ish field (pure score objects).
+const _PROSE_KEYS = new Set(["reason", "reasoning", "summary", "evidence", "drift_point"]);
+export function jsonResultLabel(raw: string): string | null {
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === "string" && value && value.length <= 24 && !_PROSE_KEYS.has(key)) {
+        return value;
+      }
+    }
+  } catch {
+    /* not JSON */
+  }
+  return null;
+}
+
+export function fmtScoreValue(s: EvalScore): string {
+  if (s.data_type === "BOOLEAN") return ""; // the verdict chip says it all
+  if (s.data_type === "TEXT" && s.string_value) {
+    const label = jsonResultLabel(s.string_value);
+    if (label) return label;
+  }
+  if (s.value != null) {
+    // NUMERIC results, and json results' normalized score
+    if (s.name.endsWith("latency_ms")) {
+      return s.value < 1000 ? `${Math.round(s.value)}ms` : `${(s.value / 1000).toFixed(2)}s`;
+    }
+    return Number.isInteger(s.value) ? String(s.value) : s.value.toFixed(2);
+  }
+  if ((s.data_type === "CATEGORICAL" || s.data_type === "TEXT") && s.string_value) return s.string_value;
+  return "";
 }
 
 // Pretty-print structured outputs in the detail panel (json results store the object compact).

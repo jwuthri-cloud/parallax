@@ -1,13 +1,13 @@
 "use client";
 
 import clsx from "../clsx";
-import { memo } from "react";
+import { memo, useContext } from "react";
 import type { ConvNode, FullTurn, SpanOut } from "../lib/api";
 import { normalizeType } from "../ui";
 import { sortSpans } from "./format";
 import { type Col, CTRL, ROW_BG } from "./columns";
-import { ChevronR } from "./icons";
-import { CTRL_CELLS } from "./contexts";
+import { ChevronR, Play } from "./icons";
+import { CTRL_CELLS, EvalViewContext } from "./contexts";
 import { convHref, CopyConvButton, renderCell, type RowCtx } from "./cells";
 import { go, traceHref } from "../links";
 import type { Cache } from "./useConversationTree";
@@ -16,6 +16,39 @@ import type { Cache } from "./useConversationTree";
 // through. Lazy: a conversation's turns and a turn's spans load when the row is expanded.
 
 // ── rows ────────────────────────────────────────────────────────────────────────
+// The per-row Play button: C rows evaluate the whole thread (turns + conversation metrics),
+// M/S rows re-evaluate their turn. Spins while that scope is running.
+function RowRunButton({ ctx }: { ctx: RowCtx }) {
+  const view = useContext(EvalViewContext);
+  if (!view.hasEvaluators) return null;
+  const busy =
+    ctx.level === "C"
+      ? view.busyRows.has(`th:${ctx.conv.thread}`)
+      : view.busyRows.has(`tr:${ctx.turn.trace_id}`) ||
+        (ctx.level === "M" && view.busyRows.has(`th:${ctx.conv.thread}`));
+  if (busy) {
+    return (
+      <span className="inline-flex h-6 w-6 items-center justify-center" title="Evaluating…">
+        <span className="h-3 w-3 animate-spin rounded-full border-2 border-line border-t-signal" />
+      </span>
+    );
+  }
+  return (
+    <button
+      tabIndex={-1}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (ctx.level === "C") view.runThread(ctx.conv.thread);
+        else view.runTrace(ctx.turn.trace_id);
+      }}
+      className="inline-flex h-6 w-6 items-center justify-center rounded-lg opacity-0 transition-opacity hover:bg-ink-600 group-hover:opacity-100"
+      title={ctx.level === "C" ? "Run all evaluations for this conversation" : "Run all evaluations for this turn"}
+    >
+      <Play className="h-3 w-3 text-fg-muted" />
+    </button>
+  );
+}
+
 function DataRow({
   depth,
   ctx,
@@ -69,6 +102,9 @@ function DataRow({
         )}
       </td>
       <td style={CTRL} className="px-2 py-2 align-top sm:px-3">
+        <RowRunButton ctx={ctx} />
+      </td>
+      <td style={CTRL} className="px-2 py-2 align-top sm:px-3">
         {ctx.level === "C" ? <CopyConvButton thread={ctx.conv.thread} /> : null}
       </td>
       {cols.map((col, i) => (
@@ -77,7 +113,8 @@ function DataRow({
           style={{ width: col.width, minWidth: 80 }}
           className={clsx(
             "px-2 py-2 align-top text-sm text-fg sm:px-3",
-            i > 0 && cols[i - 1].group !== col.group && "border-l border-line-bright/50",
+            (col.evaluator || (i > 0 && cols[i - 1].group !== col.group)) && "border-l border-line-bright/50",
+            col.tint?.td,
           )}
         >
           {renderCell(col, ctx)}
