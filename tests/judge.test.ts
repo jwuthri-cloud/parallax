@@ -862,6 +862,41 @@ test("the template library marks installed templates; a disabled column does not
   assert.equal(exported.includes("sk-or-test-key-1234"), false);
 });
 
+test("a turn with no graded score has no verdict", () => {
+  const score = (verdict: string, graded: boolean, name = "a") => ({
+    name,
+    evaluation_level: "AGENT_RUN",
+    observation_id: null,
+    value: null,
+    string_value: graded ? "" : "Not run",
+    verdict,
+    comment: "",
+    data_type: "TEXT",
+    trace_id: "t",
+    session_id: "t",
+    graded,
+    error: false,
+  });
+  const none = new Set<string>();
+  assert.equal(judge.rollupVerdict([], none), null);
+  // "Not run", "Skipped" and "Error" scores are not grades.
+  assert.equal(judge.rollupVerdict([score("", false)], none), null);
+  assert.equal(
+    judge.rollupVerdict([score("", false), score("PASS", true)], none),
+    "PASS",
+  );
+  assert.equal(judge.rollupVerdict([score("", true)], none), "PASS"); // graded, no verdict (a label)
+  assert.equal(
+    judge.rollupVerdict([score("FAIL", true), score("PASS", true)], none),
+    "FAIL",
+  );
+  // A FAIL on an advisory column is shown but does not fail the turn.
+  assert.equal(
+    judge.rollupVerdict([score("FAIL", true, "adv")], new Set(["adv"])),
+    "PASS",
+  );
+});
+
 test("removing the key turns the judge off again", async () => {
   assert.equal(provider.clearKey().configured, false);
   calls.length = 0;

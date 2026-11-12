@@ -617,13 +617,14 @@ export function scoresForSessions(
   return out;
 }
 
-/** The roll-up shown on a turn: FAIL when a non-advisory column failed, PASS when there are
- *  scores and none did, null with no scores. */
+/** The roll-up shown on a turn: FAIL when a non-advisory column failed, PASS when a judge
+ *  graded the turn and none did, null when nothing was graded. "Not run", "Skipped" and "Error"
+ *  scores are not grades: a turn that has only those has no verdict. */
 export function rollupVerdict(
   scores: EvalScore[],
   advisory: Set<string>,
 ): string | null {
-  if (!scores.length) return null;
+  if (!scores.some((s) => s.graded)) return null;
   return scores.some((s) => s.verdict === "FAIL" && !advisory.has(s.name))
     ? "FAIL"
     : "PASS";
