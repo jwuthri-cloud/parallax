@@ -39,35 +39,40 @@ All research tools accept an optional `workspaceId`. Omitting it uses `PARALLAX_
 
 ## Tools
 
-| Tool                  | Use                                                                                                                |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `list_workspaces`     | List workspace identities and source folders                                                                       |
-| `create_workspace`    | Create an empty private workspace                                                                                  |
-| `list_artifacts`      | List files, linked entry IDs and current link revisions                                                            |
-| `link_artifact`       | Set all desired entry links for an existing file, with a revision check                                            |
-| `link_chart`          | Embed a measured metric chart from an experiment into an entry                                                     |
-| `unlink_chart`        | Remove an embed while retaining source measurements                                                                |
-| `search_research`     | Search full text, tags, and provenance; optionally restrict record kind                                            |
-| `get_record`          | Read current content, all revisions, and attached artifacts                                                        |
-| `create_record`       | Create note, journal, experiment, finding, reference, task, or paper                                               |
-| `update_record`       | Save a complete revised record, with the current revision number                                                   |
-| `update_task`         | Change task status, priority, assignee, or due date without replacing the body                                     |
-| `log_metrics`         | Atomically append measurements to an experiment; duplicate name/step pairs are rejected                            |
-| `attach_file`         | Copy an allowed local file to content-addressed storage and optionally link it to several records with `recordIds` |
-| `link_records`        | Persist a directed graph connection                                                                                |
-| `get_knowledge_graph` | Read node metadata, typed edges, and record reference links                                                        |
-| `import_repository`   | Snapshot the configured repository's documentation                                                                 |
-| `workspace_summary`   | Read counts, budgets, costs, and activity                                                                          |
-| `session_handoff`     | Read active tasks, recent journals, review items, and paper drafts                                                 |
-| `set_charts`          | Replace an experiment's chart panels (title, metrics, type, goal, smoothing, format)                               |
-| `list_fields`         | Read the workspace's custom field definitions                                                                      |
-| `define_fields`       | Replace the custom field list (call `list_fields` first)                                                           |
-| `get_artifact_kit`    | Read the HTML report kit reference and starter template                                                            |
-| `log_trace`           | Record one LLM trace as a tree of spans; re-sending a span replaces it                                             |
-| `import_traces`       | Import a JSONL file of traces or spans, or an OTLP/JSON export, from the research folder                           |
-| `list_traces`         | List traces with filters (text, status, model, experiment, session, time) and paging                               |
-| `get_trace`           | Read one trace's spans; input/output cut to 4,000 characters unless `full: true`                                   |
-| `list_trace_sessions` | List conversations: traces grouped by `sessionId`                                                                  |
+| Tool                       | Use                                                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `list_workspaces`          | List workspace identities and source folders                                                                       |
+| `create_workspace`         | Create an empty private workspace                                                                                  |
+| `list_artifacts`           | List files, linked entry IDs and current link revisions                                                            |
+| `link_artifact`            | Set all desired entry links for an existing file, with a revision check                                            |
+| `link_chart`               | Embed a measured metric chart from an experiment into an entry                                                     |
+| `unlink_chart`             | Remove an embed while retaining source measurements                                                                |
+| `search_research`          | Search full text, tags, and provenance; optionally restrict record kind                                            |
+| `get_record`               | Read current content, all revisions, and attached artifacts                                                        |
+| `create_record`            | Create note, journal, experiment, finding, reference, task, or paper                                               |
+| `update_record`            | Save a complete revised record, with the current revision number                                                   |
+| `update_task`              | Change task status, priority, assignee, or due date without replacing the body                                     |
+| `log_metrics`              | Atomically append measurements to an experiment; duplicate name/step pairs are rejected                            |
+| `attach_file`              | Copy an allowed local file to content-addressed storage and optionally link it to several records with `recordIds` |
+| `link_records`             | Persist a directed graph connection                                                                                |
+| `get_knowledge_graph`      | Read node metadata, typed edges, and record reference links                                                        |
+| `import_repository`        | Snapshot the configured repository's documentation                                                                 |
+| `workspace_summary`        | Read counts, budgets, costs, and activity                                                                          |
+| `session_handoff`          | Read active tasks, recent journals, review items, and paper drafts                                                 |
+| `set_charts`               | Replace an experiment's chart panels (title, metrics, type, goal, smoothing, format)                               |
+| `list_fields`              | Read the workspace's custom field definitions                                                                      |
+| `define_fields`            | Replace the custom field list (call `list_fields` first)                                                           |
+| `get_artifact_kit`         | Read the HTML report kit reference and starter template                                                            |
+| `log_trace`                | Record one LLM trace as a tree of spans; re-sending a span replaces it                                             |
+| `import_traces`            | Import a JSONL file of traces or spans, or an OTLP/JSON export, from the research folder                           |
+| `list_traces`              | List traces with filters (text, status, model, experiment, session, time) and paging                               |
+| `get_trace`                | Read one trace's spans; input/output cut to 4,000 characters unless `full: true`                                   |
+| `list_trace_sessions`      | List conversations: traces grouped by `sessionId`                                                                  |
+| `list_evaluators`          | List the judge columns (evaluators) and whether an OpenRouter key is configured                                    |
+| `list_evaluator_templates` | List the template library of judge columns, each with a ready config                                               |
+| `create_evaluator`         | Add a judge column (an LLM rubric or a decision-model question); runs nothing                                      |
+| `update_evaluator`         | Change or disable a judge column                                                                                   |
+| `list_scores`              | Read the judge scores of a trace or a session                                                                      |
 
 Resource: `parallax://research-contract` summarizes reproducibility, privacy, and evidence expectations.
 
@@ -160,6 +165,8 @@ A trace is a tree of spans that share a `traceId`. Spans point to their parent w
 - Give `costUsd` only when the provider reported it. Parallax never estimates cost.
 - A span sent again with the same `traceId` and `spanId` replaces the stored span.
 
+Agents in the Replay and Fleet views: a span belongs to the agent named by its `tracely.agent.id`, `langfuse.agent.id`, `parallax.agent.id`, `gen_ai.agent.name`, `gen_ai.agent.id` or `agent` attribute (put it in `metadata`); without one, it belongs to the nearest `AGENT` span above it, and that span's name is the agent. An `AGENT` span inside another agent is a sub-agent. A `DELEGATE` span is a hand-off: its callee is the `tracely.handoff.callee_agent_id` attribute or the span name, and its plain-text `input` is the task. A model call whose output requests a tool named like another agent is also a hand-off.
+
 `import_traces(path)` reads a file inside the research folder. Each line of a `.jsonl` file is a trace (the shape above), or one span with its own `traceId` (spans of one trace are grouped). A file that is a single OTLP/JSON export (`{"resourceSpans": …}`) is also accepted. The result lists rejected lines with the reason. Copy result files back from the cluster first.
 
 ### OpenTelemetry (OTLP/HTTP, JSON)
@@ -172,6 +179,15 @@ export OTEL_EXPORTER_OTLP_PROTOCOL=http/json
 ```
 
 The workspace can also come from an `x-parallax-workspace` header. Protobuf requests get `415`. The endpoint is local-only like the rest of the app. The mapping is a port of Tracely's: OTel GenAI attributes and events, OpenInference, OpenLLMetry and the Vercel AI SDK, plus LangChain message serializations. A recorded `exception` event or `error.type` marks a span as failed unless its status is explicitly OK. Set the resource or span attribute `parallax.experiment_id` to link an experiment, and `session.id` or `gen_ai.conversation.id` to group a conversation.
+
+## Judge columns (evaluators)
+
+An evaluator is a judge column on the Traces table: an LLM rubric or a decision-model question, at `CONVERSATION`, `AGENT_RUN` (one trace) or step level. It is Tracely's LLM-as-judge; the engine is in `lib/judge/`.
+
+- An agent can **define** columns (`create_evaluator`, `update_evaluator`, starting from `list_evaluator_templates`) and **read** scores (`list_scores`). The description of `create_evaluator` holds the config reference.
+- An agent cannot **run** a judge: there is no run tool. A run is paid model calls on the user's OpenRouter key and sends trace content to OpenRouter, so the user starts it in the app (a Play button on a row or a column, or **Run evals**). `POST /api/evaluations/run` is the endpoint behind those buttons (server-sent events).
+- Scores are model judgments. Report them as such, with the evaluator's name and model, and never as measured results.
+- The key is one private file in the data folder (`openrouter.key`, set from **Traces → Evaluators**) or the `OPENROUTER_API_KEY` of the server process. It is not in the database and not in exports. With no key, nothing contacts OpenRouter.
 
 ## Runs (live training telemetry)
 

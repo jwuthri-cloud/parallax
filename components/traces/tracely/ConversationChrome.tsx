@@ -5,14 +5,13 @@ import type { ReactNode } from "react";
 import { fmtUsd } from "./lib/usage";
 import { CopyId } from "./CopyId";
 import { IconArrowLeft } from "./icons";
-import { listHref } from "./links";
+import { listHref, sessionHref, type ConvView } from "./links";
+import { Badge, verdictVariant } from "./ui";
 
 /* The chrome every lens of a conversation wears. Table and Timeline are client tabs on the
-   conversation page, and both keep the same header and the same strip, so switching lens never
-   looks like landing in a different app. (Parallax: Tracely's Replay and Fleet lenses, and its
-   scenario/share actions, are not ported.) */
-
-export type ConvView = "table" | "timeline";
+   conversation page; Replay and Fleet are their own routes — but all four keep the same header
+   and the same strip, so switching lens never looks like landing in a different app.
+   (Parallax: Tracely's scenario/share actions are not ported.) */
 
 export function ConversationHeader({
   threadId, turns, usage, actions,
@@ -50,26 +49,48 @@ export function ConversationHeader({
 const TAB = "relative flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium transition-colors";
 const underline = <span className="absolute inset-x-3 -bottom-px h-0.5 rounded bg-signal" />;
 
-/** The strip: Table and Timeline, owned by the conversation page. */
+/**
+ * The strip. Table/Timeline are BUTTONS when the conversation page owns that state and LINKS
+ * from Replay/Fleet (where switching back is a navigation); Replay/Fleet are always links.
+ */
 export function ConversationTabs({
-  active, spans, onSelect, right,
+  threadId, active, spans, onSelect, right,
 }: {
+  threadId: string;
   active: ConvView;
   spans: number;
-  onSelect: (view: ConvView) => void;
+  /** Provided by the conversation page, which toggles Table/Timeline client-side. */
+  onSelect?: (view: "table" | "timeline") => void;
   right?: ReactNode;
 }) {
   const cls = (v: ConvView) => clsx(TAB, active === v ? "text-fg" : "text-fg-faint hover:text-fg-muted");
+  const local = (v: "table" | "timeline", label: ReactNode) =>
+    onSelect ? (
+      <button key={v} onClick={() => onSelect(v)} className={cls(v)}>{label}{active === v && underline}</button>
+    ) : (
+      <a key={v} href={sessionHref(threadId, v)} className={cls(v)}>{label}</a>
+    );
   return (
     <div className="flex items-center justify-between gap-1 border-b border-line">
       <div className="flex items-center gap-1">
-        <button onClick={() => onSelect("table")} className={cls("table")}>Table{active === "table" && underline}</button>
-        <button onClick={() => onSelect("timeline")} className={cls("timeline")}>
-          Timeline <span className="font-mono text-[11px] text-fg-faint">{spans}</span>
-          {active === "timeline" && underline}
-        </button>
+        {local("table", "Table")}
+        {local("timeline", <>Timeline <span className="font-mono text-[11px] text-fg-faint">{spans}</span></>)}
+        <span className="mx-1 h-4 w-px bg-line" />
+        <a href={sessionHref(threadId, "replay")} className={cls("replay")}>▶ Replay{active === "replay" && underline}</a>
+        <a href={sessionHref(threadId, "fleet")} className={cls("fleet")}>⌂ Fleet{active === "fleet" && underline}</a>
       </div>
       <div className="flex items-center gap-2">{right}</div>
     </div>
+  );
+}
+
+/** The judge's grading of this conversation. Parallax: Tracely's pill links to its evals page;
+ *  here the grades are the judge columns of the Table lens, so the pill is the status only. */
+export function EvalsPill({ verdict }: { verdict: "PASS" | "FAIL" | null }) {
+  if (!verdict) return null;
+  return (
+    <Badge variant={verdictVariant(verdict)} dot>
+      evals {verdict}
+    </Badge>
   );
 }

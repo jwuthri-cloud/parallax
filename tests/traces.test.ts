@@ -493,11 +493,11 @@ test("demo traces load into the temporary demo workspace only", async () => {
   try {
     const before = traces.listTraces({ limit: 1 }).total;
     const first = traces.loadDemoTraces();
-    assert.equal(first.traces, 20);
+    assert.equal(first.traces, 23);
     assert.ok(demoDir.startsWith(os.tmpdir()));
     assert.ok(!demoDir.startsWith(process.env.PARALLAX_DATA_DIR!));
     // Idempotent: a second click does not duplicate traces or experiments.
-    assert.equal(traces.loadDemoTraces().traces, 20);
+    assert.equal(traces.loadDemoTraces().traces, 23);
     runInWorkspace("demo", () => {
       const experiments = store
         .listRecords()

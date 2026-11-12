@@ -1,21 +1,58 @@
 "use client";
 
-// Tracely's three trace pages — /traces, /traces/[traceId], /sessions/[threadId] — as client
-// components. Tracely renders them on its server; Parallax fetches on mount instead.
-import { useEffect, useState, type ReactNode } from "react";
+// Tracely's trace pages — /traces, /traces/[traceId], /sessions/[threadId] and its /replay and
+// /fleet lenses — as client components. Tracely renders them on its server; Parallax fetches on
+// mount instead.
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { getConversation, getTraceConversation, type ConvNode, type FullTurn } from "./lib/api";
 import { convUsage, fmtUsd } from "./lib/usage";
-import { ConversationHeader } from "./ConversationChrome";
+import { ConversationHeader, ConversationTabs, EvalsPill } from "./ConversationChrome";
+import { conversationVerdict } from "./lib/conversation";
 import { CopyId } from "./CopyId";
+import { EvaluatorsManager } from "./EvaluatorsManager";
 import { IconArrowLeft } from "./icons";
+import { LlmKeyPanel } from "./LlmKeyPanel";
+import { listEvaluators } from "./lib/evaluators";
 import { SessionView } from "./SessionView";
 import { SingleTraceView } from "./SingleTraceView";
 import { TracesExplorer } from "./TracesExplorer";
 import { Badge } from "./ui";
-import { listHref, sessionHref } from "./links";
+import { evaluatorsHref, listHref, sessionHref, type ConvView } from "./links";
 import type { AgentRow } from "./lib/api";
+import { ConversationStage } from "./replay/ConversationStage";
+import { OfficeStage } from "./replay/OfficeStage";
+import { buildReplay } from "./replay/script";
 
 const PAGE = 50;
+
+/** Shown on the Traces list while there are judge columns and no OpenRouter key: without one
+ *  every run is refused, and silence is the worst way to learn that. (Tracely shows its banner
+ *  on every page; here it appears only once a column exists.) */
+function MissingLlmKeyBanner() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    void Promise.all([
+      fetch("/api/llm-key", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)),
+      listEvaluators(),
+    ])
+      .then(([key, evaluators]) => alive && setShow(key?.configured === false && evaluators.length > 0))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (!show) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-warn/30 bg-warn/10 px-4 py-3 text-[13px] text-warn">
+      <span className="font-semibold">No OpenRouter key</span>
+      <span className="text-fg-muted">Evaluators need your own key before they can run.</span>
+      <a href={evaluatorsHref()} className="font-medium text-warn underline underline-offset-2">
+        Add a key
+      </a>
+    </div>
+  );
+}
 
 export function TracesPage({
   models,
@@ -38,10 +75,41 @@ export function TracesPage({
             Agent runs grouped into conversation threads — expand any conversation into its messages and steps.
           </p>
         </div>
-        {actions && <div className="flex items-center gap-2">{actions}</div>}
+        <div className="flex items-center gap-2">
+          {actions}
+          <a href={evaluatorsHref()} className="btn-ghost" title="Judge columns and the OpenRouter key">
+            Evaluators
+          </a>
+        </div>
       </header>
 
+      <MissingLlmKeyBanner />
+
       <TracesExplorer pageSize={PAGE} models={models} experiments={experiments} emptyHint={emptyHint} />
+    </div>
+  );
+}
+
+/** Every judge column in one list, and the key they run on (Tracely's /evaluators page plus its
+ *  Settings → LLM key panel). */
+export function EvaluatorsPage() {
+  return (
+    <div className="space-y-6">
+      <header className="reveal space-y-4">
+        <a href={listHref()} className="inline-flex items-center gap-1.5 text-[13px] text-fg-muted transition-colors hover:text-signal">
+          <IconArrowLeft className="h-4 w-4" /> Traces
+        </a>
+        <div>
+          <h1 className="font-display text-[26px] font-extrabold tracking-tight">Evaluators</h1>
+          <p className="mt-1.5 max-w-[760px] text-[14px] text-fg-muted">
+            Every judge that grades your traces. An evaluator is a column on the Traces table: an LLM
+            rubric or a decision-model question, at conversation, message or step level. Judges run
+            only when you press a Run button.
+          </p>
+        </div>
+      </header>
+      <LlmKeyPanel />
+      <EvaluatorsManager />
     </div>
   );
 }
@@ -122,6 +190,15 @@ export function TracePage({ traceId, experimentLink }: { traceId: string; experi
                 ← Conversation
               </a>
             )}
+            {/* Watch this run act itself out. A trace without a conversation is its own
+                one-turn thread — but prefer the thread when there is one, so the replay covers
+                every turn. */}
+            <a href={sessionHref(sessionId || traceId, "replay")} className="btn-ghost">
+              ▶ Replay
+            </a>
+            <a href={sessionHref(sessionId || traceId, "fleet")} className="btn-ghost">
+              ⌂ Fleet
+            </a>
           </div>
         </div>
       </header>
@@ -131,15 +208,42 @@ export function TracePage({ traceId, experimentLink }: { traceId: string; experi
   );
 }
 
-export function SessionPage({ threadId, experimentLink }: { threadId: string; experimentLink: (id: string | null | undefined) => ReactNode }) {
+/** One conversation under one of its four lenses. The lens is part of the route, and all four
+ *  read the same load: a lens change must not look like a different page. */
+export function SessionPage({ threadId, view, experimentLink }: {
+  threadId: string;
+  view: ConvView;
+  experimentLink: (id: string | null | undefined) => ReactNode;
+}) {
   const { data, error } = useLoad<{ conv: ConvNode; turns: FullTurn[] }>(() => getConversation(threadId), threadId);
+  const spans = useMemo(() => (data?.turns ?? []).flatMap((t) => t.spans), [data]);
+  // The Replay and Fleet lenses play the same script.
+  const replay = useMemo(() => buildReplay(spans), [spans]);
   if (!data) return <Pending error={error} what="conversation" />;
   const { conv, turns } = data;
+  const header = (
+    <ConversationHeader threadId={threadId} turns={turns.length} usage={convUsage(conv)} actions={experimentLink(conv.experiment_id)} />
+  );
+  if (view === "replay" || view === "fleet") {
+    const verdict = conversationVerdict(conv, turns);
+    return (
+      <div className="space-y-6">
+        {header}
+        <ConversationTabs threadId={threadId} active={view} spans={spans.length}
+          right={<EvalsPill verdict={verdict} />} />
+        {view === "replay" ? (
+          <ConversationStage threadId={threadId} data={replay} spans={spans} />
+        ) : (
+          <OfficeStage threadId={threadId} data={replay} verdict={verdict} />
+        )}
+      </div>
+    );
+  }
   return (
     <div className="space-y-6">
-      <ConversationHeader threadId={threadId} turns={turns.length} usage={convUsage(conv)} actions={experimentLink(conv.experiment_id)} />
+      {header}
       <div className="reveal" style={{ animationDelay: "60ms" }}>
-        <SessionView conv={conv} turns={turns} />
+        <SessionView conv={conv} turns={turns} initialTab={view} />
       </div>
     </div>
   );

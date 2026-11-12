@@ -65,6 +65,11 @@ export function db() {
     CREATE INDEX IF NOT EXISTS runs_last ON runs(last_ms);
     CREATE TABLE IF NOT EXISTS run_points (run_id TEXT NOT NULL, name TEXT NOT NULL, step REAL NOT NULL, time_ms INTEGER NOT NULL, value REAL, PRIMARY KEY(run_id, name, step)) WITHOUT ROWID;
     CREATE TABLE IF NOT EXISTS run_metrics (run_id TEXT NOT NULL, name TEXT NOT NULL, count INTEGER NOT NULL, last_step REAL NOT NULL, last REAL, min REAL, max REAL, non_finite INTEGER NOT NULL, first_non_finite_step REAL, PRIMARY KEY(run_id, name)) WITHOUT ROWID;
+    CREATE TABLE IF NOT EXISTS evaluators (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL, kind TEXT NOT NULL, score_name TEXT NOT NULL UNIQUE, level TEXT NOT NULL, enabled INTEGER NOT NULL, config TEXT NOT NULL, created_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS eval_scores (id TEXT PRIMARY KEY, name TEXT NOT NULL, level TEXT NOT NULL, trace_id TEXT, session_id TEXT NOT NULL, span_id TEXT NOT NULL, data_type TEXT NOT NULL, value REAL, string_value TEXT NOT NULL, verdict TEXT NOT NULL, comment TEXT NOT NULL, graded INTEGER NOT NULL, error INTEGER NOT NULL, model TEXT NOT NULL, input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL, cost_usd REAL, calls TEXT NOT NULL, created_at TEXT NOT NULL) WITHOUT ROWID;
+    CREATE INDEX IF NOT EXISTS eval_scores_trace ON eval_scores(trace_id);
+    CREATE INDEX IF NOT EXISTS eval_scores_session ON eval_scores(session_id);
+    CREATE INDEX IF NOT EXISTS eval_scores_name ON eval_scores(name);
   `);
   connections.set(folder, connection);
   return connection;
@@ -814,6 +819,10 @@ export function exportWorkspace() {
     runs: db().prepare("SELECT * FROM runs ORDER BY started_ms").all(),
     runPoints: db()
       .prepare("SELECT * FROM run_points ORDER BY run_id, name, step")
+      .all(),
+    evaluators: db().prepare("SELECT * FROM evaluators ORDER BY rowid").all(),
+    evalScores: db()
+      .prepare("SELECT * FROM eval_scores ORDER BY session_id, id")
       .all(),
     artifacts: listArtifacts().map((a) => ({
       ...a,

@@ -18,6 +18,10 @@ export type EvalScore = {
   data_type: string;
   trace_id?: string | null;
   session_id?: string | null;
+  /** False for "Not run" / "Skipped": the cell says why, but it is not a grade. */
+  graded?: boolean;
+  /** True when the judge call failed. */
+  error?: boolean;
 };
 
 export type SpanOut = {
@@ -138,7 +142,10 @@ export function toSpanOut(s: TraceSpan): SpanOut {
   };
 }
 
-export function toTurn(t: TraceSummary): ThreadTurn {
+/** Parallax: the trace and session reads carry the judge scores (lib/judge/store.ts). */
+type Scored = { scores?: EvalScore[]; verdict?: string | null };
+
+export function toTurn(t: TraceSummary & Scored): ThreadTurn {
   return {
     trace_id: t.traceId,
     input: t.input,
@@ -151,14 +158,14 @@ export function toTurn(t: TraceSummary): ThreadTurn {
     latency_ms: t.durationMs,
     ts: t.startTime,
     failing: t.failing ? 1 : 0,
-    scores: [],
-    verdict: null,
+    scores: t.scores ?? [],
+    verdict: t.verdict ?? null,
     name: t.name,
     experiment_id: t.experimentId,
   };
 }
 
-function toThread(s: SessionSummary): ConvNode {
+function toThread(s: SessionSummary & Scored): ConvNode {
   return {
     thread: s.sessionId,
     turns: s.turns,
@@ -175,6 +182,7 @@ function toThread(s: SessionSummary): ConvNode {
     failing: s.failing ? 1 : 0,
     agent: s.agent,
     experiment_id: s.experimentId,
+    scores: s.scores ?? [],
   };
 }
 
@@ -185,11 +193,16 @@ export function setWorkspace(id: string) {
   workspaceId = id;
 }
 
-async function get<T>(path: string, params: Record<string, unknown> = {}): Promise<T> {
+/** `path` with the workspace (every Parallax API call is scoped to one) and `params`. */
+export function wsUrl(path: string, params: Record<string, unknown> = {}): string {
   const qs = new URLSearchParams({ workspaceId });
   for (const [k, v] of Object.entries(params))
     if (v !== undefined && v !== null && v !== "" && v !== false) qs.set(k, String(v));
-  const r = await fetch(`${path}?${qs}`, { cache: "no-store" });
+  return `${path}?${qs}`;
+}
+
+async function get<T>(path: string, params: Record<string, unknown> = {}): Promise<T> {
+  const r = await fetch(wsUrl(path, params), { cache: "no-store" });
   const body = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(body.error || `request failed (${r.status})`);
   return body as T;
@@ -212,7 +225,7 @@ function listParams(q: SessionsQuery) {
 }
 
 export async function getSessionsPage(q: SessionsQuery): Promise<{ items: ConvNode[]; total: number }> {
-  const page = await get<Page<SessionSummary>>("/api/trace-sessions", listParams(q));
+  const page = await get<Page<SessionSummary & Scored>>("/api/trace-sessions", listParams(q));
   return { items: page.items.map(toThread), total: page.total };
 }
 
@@ -224,7 +237,8 @@ export async function getSessionsCount(q: SessionsQuery): Promise<number> {
   return (await getSessionsPage({ ...q, limit: 1, offset: 0 })).total;
 }
 
-type SessionDetail = SessionSummary & { traces: TraceSummary[]; spanList: TraceSpan[] };
+type SessionDetail = SessionSummary &
+  Scored & { traces: (TraceSummary & Scored)[]; spanList: TraceSpan[] };
 
 /** One conversation with every turn's spans, as Tracely's detail pages expect it. */
 export async function getConversation(threadId: string): Promise<{
@@ -245,7 +259,7 @@ export async function getTraceConversation(traceId: string): Promise<{
   turn: FullTurn;
   sessionId: string | null;
 }> {
-  const d = await get<TraceSummary & { spanList: TraceSpan[] }>(
+  const d = await get<TraceSummary & Scored & { spanList: TraceSpan[] }>(
     `/api/traces/${encodeURIComponent(traceId)}`,
   );
   const turn: FullTurn = { ...toTurn(d), spans: d.spanList.map(toSpanOut) };

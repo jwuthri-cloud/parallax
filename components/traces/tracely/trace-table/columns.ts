@@ -2,18 +2,39 @@
 // stable shape of the table (the dynamic metric columns get appended at runtime from `evaluators`).
 // Extracted from TraceTable.tsx so the static layout is one short, readable file.
 import type { SessionSort } from "../lib/api";
+import type { EvaluatorDef } from "../lib/evaluators";
 
 // ── shape ─────────────────────────────────────────────────────────────────────
 export type Group = "C" | "M" | "S";
+
+// `evaluator` marks a dynamic metric column (one per evaluator row, keyed by score_name);
+// `tint` is its full-column color wash (header + body) so adjacent metrics read as
+// distinct columns instead of one wide band.
+export type MetricTint = { th: string; td: string };
 
 export type Col = {
   key: string;
   label: string;
   group: Group;
   width: number;
+  evaluator?: EvaluatorDef;
+  tint?: MetricTint;
 };
 
-// ── badges ──────────────────────────────────────────────────────────────────────
+// ── tints + badges ────────────────────────────────────────────────────────────
+// Cycled per metric column, TurnWise-style. Literal class strings (Tailwind JIT needs to see
+// them in source); header gets the stronger wash, body cells a subtle one.
+export const METRIC_TINTS: MetricTint[] = [
+  { th: "bg-ok/15", td: "bg-ok/[0.06]" },
+  { th: "bg-fail/15", td: "bg-fail/[0.06]" },
+  { th: "bg-info/15", td: "bg-info/[0.06]" },
+  { th: "bg-t_think/15", td: "bg-t_think/[0.06]" },
+  { th: "bg-warn/15", td: "bg-warn/[0.06]" },
+  { th: "bg-ok/15", td: "bg-ok/[0.06]" },
+  { th: "bg-fuchsia-500/15", td: "bg-fuchsia-500/[0.06]" },
+  { th: "bg-t_agent/15", td: "bg-t_agent/[0.06]" },
+];
+
 export const LEVEL_BADGE: Record<Group, string> = {
   C: "bg-info/20 text-info",
   M: "bg-ok/20 text-ok",
@@ -58,8 +79,9 @@ export const KNOWN_SPAN_TYPES = [
 ] as const;
 
 // ── default column set ────────────────────────────────────────────────────────
-// The static C/M/S columns (Parallax: Tracely's evaluator and rolling-summary columns are not
-// ported; "Experiment" is Parallax's own). Order matters — it's the left-to-right order.
+// The static C/M/S columns; the runtime evaluator columns get appended in TraceTable's
+// `allColumns` memo. (Parallax: Tracely's rolling-summary columns are not ported; "Experiment"
+// is Parallax's own.) Order matters — it's the left-to-right order.
 export const COLUMNS: Col[] = [
   { key: "conversation", label: "Conversation", group: "C", width: 260 },
   { key: "cagent",       label: "Agent",        group: "C", width: 140 },

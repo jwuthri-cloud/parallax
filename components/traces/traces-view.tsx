@@ -1,24 +1,38 @@
 "use client";
 // The Traces tab: Tracely's trace UI (vendored in ./tracely) inside a Parallax workspace. The
-// view lives in the URL hash — #traces?…, #traces/trace/<id>, #traces/session/<id> — so a link
-// reproduces it. "Load demo traces" switches the tab to a temporary demo workspace filled with
+// view lives in the URL hash — #traces?…, #traces/trace/<id>, #traces/session/<id> and its
+// lenses #traces/session/<id>/timeline|replay|fleet — so a link reproduces it. "Load demo traces" switches the tab to a temporary demo workspace filled with
 // synthetic traces; the real workspace is never written to.
 import { useEffect, useMemo, useState } from "react";
 import type { ResearchRecord, Workspace } from "@/lib/schema";
 import { api, useWorkspaceApi } from "../ui";
 import { getFacets, setWorkspace, type AgentRow } from "./tracely/lib/api";
-import { SessionPage, TracePage, TracesPage } from "./tracely/pages";
+import {
+  EvaluatorsPage,
+  SessionPage,
+  TracePage,
+  TracesPage,
+} from "./tracely/pages";
 import { ExperimentContext } from "./tracely/trace-table/contexts";
-import { listHref } from "./tracely/links";
+import { listHref, type ConvView } from "./tracely/links";
 
-type Route = { kind: "list" } | { kind: "trace" | "session"; id: string };
+type Route =
+  | { kind: "list" | "evaluators" }
+  | { kind: "trace"; id: string }
+  | { kind: "session"; id: string; view: ConvView };
 const demoWorkspace = "demo";
+const convViews: ConvView[] = ["table", "timeline", "replay", "fleet"];
 
 export function parseTraceHash(hash: string): Route {
   const [path] = hash.replace(/^#/, "").split("?");
-  const [, kind, id] = path.split("/");
-  if ((kind === "trace" || kind === "session") && id)
-    return { kind, id: decodeURIComponent(id) };
+  const [, kind, id, lens] = path.split("/");
+  if (kind === "trace" && id) return { kind, id: decodeURIComponent(id) };
+  if (kind === "session" && id) {
+    const view = convViews.find((v) => v === lens) ?? "table";
+    return { kind, id: decodeURIComponent(id), view };
+  }
+  // The Evaluators page: every judge column and the OpenRouter key.
+  if (kind === "evaluators") return { kind };
   return { kind: "list" };
 }
 
@@ -153,8 +167,11 @@ export function TracesView({
               <SessionPage
                 key={route.id}
                 threadId={route.id}
+                view={route.view}
                 experimentLink={experimentLink}
               />
+            ) : route.kind === "evaluators" ? (
+              <EvaluatorsPage />
             ) : (
               <TracesPage
                 models={pickerRows(facets.models, (m) => m)}
