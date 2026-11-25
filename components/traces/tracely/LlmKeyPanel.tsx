@@ -6,11 +6,13 @@ type Status = "loading" | "unset" | "set";
 
 /** Evaluators page: the OpenRouter key every judge call runs on. Parallax changes: one key for
  *  this Parallax (a private file in its data folder, or OPENROUTER_API_KEY), not one per
- *  workspace. The key is only ever sent once — after saving, the server shows "configured",
- *  never the value again. */
+ *  workspace; or no stored key at all, when the server has OPENROUTER_FEDERATION_POLICY_ID
+ *  (a short-lived key for the identity of the machine). The key is only ever sent once — after
+ *  saving, the server shows "configured", never the value again. */
 export function LlmKeyPanel({ onChange }: { onChange?: (configured: boolean) => void }) {
   const [status, setStatusState] = useState<Status>("loading");
   const [source, setSource] = useState<string | null>(null);
+  const [hint, setHint] = useState("");
   const setStatus = (next: Status) => {
     setStatusState(next);
     if (next !== "loading") onChange?.(next === "set");
@@ -25,6 +27,7 @@ export function LlmKeyPanel({ onChange }: { onChange?: (configured: boolean) => 
       .then((r) => r.json())
       .then((d) => {
         setSource(d?.source ?? null);
+        setHint(d?.hint ?? "");
         setStatus(d?.configured ? "set" : "unset");
       })
       .catch(() => setStatus("unset"));
@@ -67,8 +70,10 @@ export function LlmKeyPanel({ onChange }: { onChange?: (configured: boolean) => 
         setErr(d?.error ?? `Remove failed (HTTP ${r.status})`);
         return;
       }
-      // A key in the server environment still applies after the saved one is removed.
+      // A key or a federation policy in the server environment still applies after the saved
+      // key is removed.
       setSource(d?.source ?? null);
+      setHint(d?.hint ?? "");
       setStatus(d?.configured ? "set" : "unset");
     } catch {
       setErr("Remove failed: could not reach the server.");
@@ -100,16 +105,20 @@ export function LlmKeyPanel({ onChange }: { onChange?: (configured: boolean) => 
         {status === "set" && !editing && (
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="rounded-lg border border-ok/30 bg-ok/10 px-3 py-2 text-[13px] text-ok">
-              {source === "environment" ? "A key from OPENROUTER_API_KEY is in use" : "A key is configured"}
+              {source === "environment"
+                ? "A key from OPENROUTER_API_KEY is in use"
+                : source === "federation"
+                  ? `No stored key: a short-lived key for this machine's identity (federation ${hint})`
+                  : "A key is configured"}
             </span>
             <button
               onClick={() => setEditing(true)}
               disabled={busy}
               className="rounded-lg border border-line bg-ink-800 px-3.5 py-2 text-[13px] font-medium text-fg transition-colors hover:border-line-bright disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Replace
+              {source === "federation" ? "Use a stored key instead" : "Replace"}
             </button>
-            {source !== "environment" && (
+            {source === "saved" && (
               <button
                 onClick={remove}
                 disabled={busy}

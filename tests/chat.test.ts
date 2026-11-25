@@ -14,6 +14,7 @@ mkdirSync(path.join(temp, "research"));
 process.env.PARALLAX_DATA_DIR = path.join(temp, "private-data");
 process.env.PARALLAX_RESEARCH_ROOT = path.join(temp, "research");
 delete process.env.OPENROUTER_API_KEY;
+delete process.env.OPENROUTER_FEDERATION_POLICY_ID; // set on machines with federation
 
 type Json = Record<string, unknown>;
 type Message = { role: string; content: string; tool_call_id?: string };

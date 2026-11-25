@@ -17,6 +17,7 @@ test("real MCP stdio client: tools, records, metrics, tasks, graph, attachments 
     env: {
       ...(process.env as Record<string, string>),
       OPENROUTER_API_KEY: "", // the judge stays off: no call can leave this test
+      OPENROUTER_FEDERATION_POLICY_ID: "",
       PARALLAX_DATA_DIR: path.join(temp, "data"),
       PARALLAX_RESEARCH_ROOT: repo,
     },

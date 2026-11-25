@@ -9,7 +9,10 @@
 //   have no chat endpoint.
 // - `streamChat`: one streamed chat completion that may ask for tool calls (the workspace chat).
 // - The key is the user's own OpenRouter key: saved from the Evaluators page (one private file
-//   in the data folder), or `OPENROUTER_API_KEY`. With no key nothing here contacts OpenRouter.
+//   in the data folder), or `OPENROUTER_API_KEY`. With neither, and with
+//   `OPENROUTER_FEDERATION_POLICY_ID` set, each call uses a short-lived key that OpenRouter
+//   gives for the identity of the machine (./federation.ts): no key is stored. With none of the
+//   three nothing here contacts OpenRouter.
 //
 // What leaves this machine: the judged trace content and the rubric, to OpenRouter, only when
 // the user runs a column; and the question, the earlier turns and the passages the model looks
@@ -24,6 +27,11 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { dataDir, StoreError } from "../workspaces";
+import {
+  federatedKey,
+  federationPolicyId,
+  forgetFederatedKey,
+} from "./federation";
 import type { ModelInfo } from "./budget";
 import type { Answers, Question } from "./decision";
 import {
@@ -71,7 +79,7 @@ export const settings = {
 // ── the key ─────────────────────────────────────────────────────────────────────
 const keyFile = () => path.join(dataDir, "openrouter.key");
 
-/** The OpenRouter key in effect: the saved one, else the environment's. "" when none. */
+/** The stored OpenRouter key: the saved one, else the environment's. "" when none. */
 export function openrouterKey(): string {
   try {
     const saved = readFileSync(keyFile(), "utf8").trim();
@@ -82,14 +90,40 @@ export function openrouterKey(): string {
   return (process.env.OPENROUTER_API_KEY ?? "").trim();
 }
 
+/** The key to send with a call: the stored one, else one from federation. "" when neither is
+ *  configured. A stored key wins, so a pasted key is never silently replaced. */
+async function credential(): Promise<string> {
+  const stored = openrouterKey();
+  if (stored) return stored;
+  return federationPolicyId()
+    ? federatedKey(`${settings.baseUrl}/oauth/token`)
+    : "";
+}
+
+/** OpenRouter refused the key (401). A federated key is dropped, so the next call asks again. */
+function refused() {
+  if (!openrouterKey()) forgetFederatedKey();
+}
+
 export function keyStatus() {
   const saved = existsSync(keyFile());
   const key = openrouterKey();
+  const policy = key ? "" : federationPolicyId();
   return {
-    configured: !!key,
-    source: !key ? null : saved ? ("saved" as const) : ("environment" as const),
-    // The value is never returned: only enough to tell two keys apart.
-    hint: key ? `…${key.slice(-4)}` : "",
+    configured: !!key || !!policy,
+    source: key
+      ? saved
+        ? ("saved" as const)
+        : ("environment" as const)
+      : policy
+        ? ("federation" as const)
+        : null,
+    // The value is never returned: only enough to tell two keys (or two policies) apart.
+    hint: key
+      ? `…${key.slice(-4)}`
+      : policy
+        ? `policy …${policy.slice(-4)}`
+        : "",
   };
 }
 
@@ -110,7 +144,9 @@ export function clearKey() {
   return keyStatus();
 }
 
-export const llmEnabled = () => !!openrouterKey();
+/** A stored key or a federation policy is configured. With federation, whether the machine
+ *  really gets a key shows at the first call. */
+export const llmEnabled = () => !!openrouterKey() || !!federationPolicyId();
 
 const NO_KEY =
   "No OpenRouter API key. Add one on the Evaluators page (Traces → Evaluators) to run LLM judges.";
@@ -167,8 +203,7 @@ function resetModelCache() {
 /** OpenRouter's model catalog, kept for an hour. Empty without a key (no call is made). After a
  *  failed refresh the last catalog keeps serving and the next try waits 60 s. */
 async function openrouterModels(): Promise<Catalog> {
-  const key = openrouterKey();
-  if (!key) return new Map();
+  if (!llmEnabled()) return new Map();
   const url = `${settings.baseUrl}/models`;
   const now = Date.now();
   if (
@@ -179,9 +214,10 @@ async function openrouterModels(): Promise<Catalog> {
     return modelCache.byId;
   try {
     const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${key}` },
+      headers: { Authorization: `Bearer ${await credential()}` },
       signal: AbortSignal.timeout(10_000),
     });
+    if (response.status === 401) refused();
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const body = (await response.json()) as { data?: Json[] };
     const byId: Catalog = new Map();
@@ -237,9 +273,7 @@ export const defaultModelId = () => normalizeModel(settings.judgeModel);
  *  text default, so the form never offers a model that cannot run. */
 export function defaultColumnModelId(): string {
   const column = normalizeModel(settings.columnModel);
-  return openrouterKey() && column in DECISION_MODELS
-    ? column
-    : defaultModelId();
+  return llmEnabled() && column in DECISION_MODELS ? column : defaultModelId();
 }
 
 export type ModelOption = {
@@ -260,7 +294,7 @@ export async function listModels(): Promise<ModelOption[]> {
   });
   let out = CURATED_MODELS.filter(([id]) => catalog.has(id)).map(llm);
   if (!out.length) out = CURATED_MODELS.map(llm);
-  if (openrouterKey())
+  if (llmEnabled())
     for (const [id, d] of Object.entries(DECISION_MODELS))
       out.push({
         id,
@@ -329,7 +363,7 @@ async function post(
   url: string,
   body: Json,
 ): Promise<{ status: number; text: string }> {
-  const key = openrouterKey();
+  const key = await credential();
   if (!key) throw new StoreError(NO_KEY, 503);
   for (let attempt = 0; ; attempt++) {
     const response = await fetch(url, {
@@ -342,6 +376,7 @@ async function post(
       signal: AbortSignal.timeout(120_000),
     });
     const text = await response.text();
+    if (response.status === 401) refused();
     if (!RETRY_STATUSES.includes(response.status) || attempt === ATTEMPTS - 1)
       return { status: response.status, text };
     const after = Number(response.headers.get("retry-after"));
@@ -654,7 +689,7 @@ export async function streamChat(options: {
   onText: (delta: string) => void;
   signal?: AbortSignal;
 }): Promise<{ content: string; toolCalls: ToolCall[]; usage: Usage }> {
-  const key = openrouterKey();
+  const key = await credential();
   if (!key) throw new StoreError(NO_KEY, 503);
   const model = chatModel(options.model);
   const timeout = AbortSignal.timeout(300_000);
@@ -685,6 +720,7 @@ export async function streamChat(options: {
     await response.body?.cancel();
     await sleep(500 * 2 ** attempt);
   }
+  if (response.status === 401) refused();
   if (!response.ok || !response.body)
     throw new ProviderError(
       `OpenRouter ${response.status} for ${model}: ${errorMessage(await response.text())}`,
